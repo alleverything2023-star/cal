@@ -32,9 +32,13 @@ video{
 #room{
     display:none;
 }
-</style>
 
+#participants{
+    margin-top:20px;
+}
+</style>
 </head>
+
 <body>
 
 <div id="join">
@@ -85,9 +89,13 @@ muted
 playsinline>
 </video>
 
+<h3>参加者</h3>
+<ul id="participants"></ul>
+
 </div>
 
 <script type="module">
+
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
 
@@ -99,21 +107,22 @@ import {
   remove
 }
 from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
-    
-  const firebaseConfig = {
-    apiKey: "AIzaSyC8xaZlj3hnMNYeppvbtxZFLqw4q-9ca9g",
-    authDomain: "call-a9823.firebaseapp.com",
-    projectId: "call-a9823",
-    storageBucket: "call-a9823.firebasestorage.app",
-    messagingSenderId: "656862118456",
-    appId: "1:656862118456:web:46dc8bfbdaf355ef9b9ccd",
-    measurementId: "G-DRZKNJF6NY"
-  };
-    const app =
-initializeApp(firebaseConfig);
 
-const db =
-getDatabase(app);
+const firebaseConfig = {
+  apiKey: "AIzaSyC8xaZlj3hnMNYeppvbtxZFLqw4q-9ca9g",
+  authDomain: "call-a9823.firebaseapp.com",
+  projectId: "call-a9823",
+  storageBucket: "call-a9823.firebasestorage.app",
+  messagingSenderId: "656862118456",
+  appId: "1:656862118456:web:46dc8bfbdaf355ef9b9ccd",
+  measurementId: "G-DRZKNJF6NY",
+  databaseURL:
+  "https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 const cameraList =
 document.getElementById("cameraList");
 
@@ -122,6 +131,8 @@ document.getElementById("micList");
 
 const status =
 document.getElementById("status");
+
+let userId = null;
 
 async function loadDevices(){
 
@@ -178,6 +189,35 @@ async function loadDevices(){
 
 loadDevices();
 
+onValue(
+ref(db,"participants"),
+(snapshot)=>{
+
+    const list =
+    document.getElementById("participants");
+
+    list.innerHTML="";
+
+    const data =
+    snapshot.val();
+
+    if(!data) return;
+
+    Object.values(data)
+    .forEach(user=>{
+
+        const li =
+        document.createElement("li");
+
+        li.textContent =
+        user.name;
+
+        list.appendChild(li);
+
+    });
+
+});
+
 document
 .getElementById("joinButton")
 .addEventListener("click",async()=>{
@@ -191,6 +231,9 @@ document
         alert("名前を入力してください");
         return;
     }
+
+    userId =
+    crypto.randomUUID();
 
     const stream =
     await navigator.mediaDevices.getUserMedia({
@@ -229,6 +272,14 @@ document
     .getElementById("localVideo")
     .srcObject = stream;
 
+    await set(
+        ref(db,
+        "participants/" + userId),
+        {
+            name:name
+        }
+    );
+
     document
     .getElementById("displayName")
     .textContent = name;
@@ -240,6 +291,19 @@ document
     document
     .getElementById("room")
     .style.display = "block";
+});
+
+window.addEventListener(
+"beforeunload",
+async()=>{
+
+    if(!userId) return;
+
+    await remove(
+        ref(db,
+        "participants/" + userId)
+    );
+
 });
 
 </script>
