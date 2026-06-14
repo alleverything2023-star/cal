@@ -3,58 +3,219 @@
 <head>
 <meta charset="UTF-8">
 <title>Call</title>
+
+<style>
+body{
+    font-family:sans-serif;
+    max-width:600px;
+    margin:auto;
+    padding:20px;
+}
+
+label{
+    display:block;
+    margin-top:15px;
+}
+
+select,input,button{
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+}
+
+video{
+    width:100%;
+    margin-top:20px;
+    border:1px solid #ccc;
+}
+
+#room{
+    display:none;
+}
+</style>
+
 </head>
 <body>
 
+<div id="join">
+
 <h1>Call Site</h1>
 
+<label>
+名前
+<input id="name" placeholder="名前を入力">
+</label>
+
+<label>
+カメラ
+<select id="cameraList"></select>
+</label>
+
+<label>
+マイク
+<select id="micList"></select>
+</label>
+
+<label>
+<input type="checkbox" id="cameraEnabled" checked>
+カメラONで入室
+</label>
+
+<label>
+<input type="checkbox" id="micEnabled" checked>
+マイクONで入室
+</label>
+
+<button id="joinButton">
+入室
+</button>
+
+<p id="status"></p>
+
+</div>
+
+<div id="room">
+
+<h2 id="displayName"></h2>
+
 <video
-  id="localVideo"
-  autoplay
-  muted
-  playsinline
-  width="400">
+id="localVideo"
+autoplay
+muted
+playsinline>
 </video>
 
-<p id="status">準備中...</p>
+</div>
 
-<script type="module">
+<script>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+const cameraList =
+document.getElementById("cameraList");
 
-const firebaseConfig = {
-  apiKey: "AIzaSyC8xaZlj3hnMNYeppvbtxZFLqw4q-9ca9g",
-  authDomain: "call-a9823.firebaseapp.com",
-  projectId: "call-a9823",
-  storageBucket: "call-a9823.firebasestorage.app",
-  messagingSenderId: "656862118456",
-  appId: "1:656862118456:web:46dc8bfbdaf355ef9b9ccd",
-  measurementId: "G-DRZKNJF6NY"
-};
+const micList =
+document.getElementById("micList");
 
-initializeApp(firebaseConfig);
+const status =
+document.getElementById("status");
 
-const status = document.getElementById("status");
+async function loadDevices(){
 
-try {
-  const stream =
+    try{
+
+        await navigator.mediaDevices.getUserMedia({
+            video:true,
+            audio:true
+        });
+
+        const devices =
+        await navigator.mediaDevices.enumerateDevices();
+
+        cameraList.innerHTML="";
+        micList.innerHTML="";
+
+        devices.forEach(device=>{
+
+            if(device.kind==="videoinput"){
+
+                const option =
+                document.createElement("option");
+
+                option.value=device.deviceId;
+                option.text=
+                device.label || "Camera";
+
+                cameraList.appendChild(option);
+            }
+
+            if(device.kind==="audioinput"){
+
+                const option =
+                document.createElement("option");
+
+                option.value=device.deviceId;
+                option.text=
+                device.label || "Microphone";
+
+                micList.appendChild(option);
+            }
+
+        });
+
+        status.textContent =
+        "デバイス取得成功";
+
+    }catch(err){
+
+        status.textContent =
+        err.message;
+    }
+}
+
+loadDevices();
+
+document
+.getElementById("joinButton")
+.addEventListener("click",async()=>{
+
+    const name =
+    document.getElementById("name")
+    .value.trim();
+
+    if(!name){
+
+        alert("名前を入力してください");
+        return;
+    }
+
+    const stream =
     await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
+
+        video:{
+            deviceId:
+            cameraList.value
+            ? {exact:cameraList.value}
+            : undefined
+        },
+
+        audio:{
+            deviceId:
+            micList.value
+            ? {exact:micList.value}
+            : undefined
+        }
+
     });
 
-  document.getElementById("localVideo").srcObject =
-    stream;
+    stream.getVideoTracks()
+    .forEach(track=>{
+        track.enabled =
+        document.getElementById("cameraEnabled")
+        .checked;
+    });
 
-  status.textContent =
-    "カメラ・マイク取得成功";
+    stream.getAudioTracks()
+    .forEach(track=>{
+        track.enabled =
+        document.getElementById("micEnabled")
+        .checked;
+    });
 
-} catch(err) {
+    document
+    .getElementById("localVideo")
+    .srcObject = stream;
 
-  status.textContent =
-    "カメラ取得失敗: " + err.message;
+    document
+    .getElementById("displayName")
+    .textContent = name;
 
-}
+    document
+    .getElementById("join")
+    .style.display = "none";
+
+    document
+    .getElementById("room")
+    .style.display = "block";
+});
 
 </script>
 
