@@ -87,8 +87,24 @@ playsinline>
 
 </div>
 
-<script>
+<script type="module">
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
 
+import {
+  getDatabase,
+  ref,
+  set,
+  onValue,
+  remove
+}
+from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+
+    const app =
+initializeApp(firebaseConfig);
+
+const db =
+getDatabase(app);
 const cameraList =
 document.getElementById("cameraList");
 
