@@ -1,73 +1,40 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Call</title>
-
-<style>
-body{
-    font-family:sans-serif;
-    max-width:600px;
-    margin:auto;
-    padding:20px;
-}
-
-label{
-    display:block;
-    margin-top:15px;
-}
-
-select,input,button{
-    width:100%;
-    padding:10px;
-    margin-top:5px;
-}
-
-video{
-    width:100%;
-    margin-top:20px;
-    border:1px solid #ccc;
-}
-
-#room{
-    display:none;
-}
-
-#participants{
-    margin-top:20px;
-}
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Call Site</title>
+<link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
 
-<div id="join">
+<div id="joinScreen">
 
 <h1>Call Site</h1>
 
+<input
+id="nameInput"
+placeholder="名前">
+
+<select id="cameraSelect"></select>
+
+<select id="micSelect"></select>
+
 <label>
-名前
-<input id="name" placeholder="名前を入力">
+<input
+type="checkbox"
+id="cameraEnabled"
+checked>
+カメラON
 </label>
 
 <label>
-カメラ
-<select id="cameraList"></select>
-</label>
-
-<label>
-マイク
-<select id="micList"></select>
-</label>
-
-<label>
-<input type="checkbox" id="cameraEnabled" checked>
-カメラONで入室
-</label>
-
-<label>
-<input type="checkbox" id="micEnabled" checked>
-マイクONで入室
+<input
+type="checkbox"
+id="micEnabled"
+checked>
+マイクON
 </label>
 
 <button id="joinButton">
@@ -78,235 +45,25 @@ video{
 
 </div>
 
-<div id="room">
+<div id="roomScreen">
 
-<h2 id="displayName"></h2>
+<div id="topBar">
+<span id="myName"></span>
+</div>
 
-<video
-id="localVideo"
-autoplay
-muted
-playsinline>
-</video>
+<div id="videoGrid"></div>
+
+<div id="participantPanel">
 
 <h3>参加者</h3>
-<ul id="participants"></ul>
+
+<ul id="participantList"></ul>
 
 </div>
 
-<script type="module">
+</div>
 
-import { initializeApp }
-from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-
-import {
-  getDatabase,
-  ref,
-  set,
-  onValue,
-  remove
-}
-from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyC8xaZlj3hnMNYeppvbtxZFLqw4q-9ca9g",
-  authDomain: "call-a9823.firebaseapp.com",
-  projectId: "call-a9823",
-  storageBucket: "call-a9823.firebasestorage.app",
-  messagingSenderId: "656862118456",
-  appId: "1:656862118456:web:46dc8bfbdaf355ef9b9ccd",
-  measurementId: "G-DRZKNJF6NY",
-  databaseURL:
-  "https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-const cameraList =
-document.getElementById("cameraList");
-
-const micList =
-document.getElementById("micList");
-
-const status =
-document.getElementById("status");
-
-let userId = null;
-
-async function loadDevices(){
-
-    try{
-
-        await navigator.mediaDevices.getUserMedia({
-            video:true,
-            audio:true
-        });
-
-        const devices =
-        await navigator.mediaDevices.enumerateDevices();
-
-        cameraList.innerHTML="";
-        micList.innerHTML="";
-
-        devices.forEach(device=>{
-
-            if(device.kind==="videoinput"){
-
-                const option =
-                document.createElement("option");
-
-                option.value=device.deviceId;
-                option.text=
-                device.label || "Camera";
-
-                cameraList.appendChild(option);
-            }
-
-            if(device.kind==="audioinput"){
-
-                const option =
-                document.createElement("option");
-
-                option.value=device.deviceId;
-                option.text=
-                device.label || "Microphone";
-
-                micList.appendChild(option);
-            }
-
-        });
-
-        status.textContent =
-        "デバイス取得成功";
-
-    }catch(err){
-
-        status.textContent =
-        err.message;
-    }
-}
-
-loadDevices();
-
-onValue(
-ref(db,"participants"),
-(snapshot)=>{
-
-    const list =
-    document.getElementById("participants");
-
-    list.innerHTML="";
-
-    const data =
-    snapshot.val();
-
-    if(!data) return;
-
-    Object.values(data)
-    .forEach(user=>{
-
-        const li =
-        document.createElement("li");
-
-        li.textContent =
-        user.name;
-
-        list.appendChild(li);
-
-    });
-
-});
-
-document
-.getElementById("joinButton")
-.addEventListener("click",async()=>{
-
-    const name =
-    document.getElementById("name")
-    .value.trim();
-
-    if(!name){
-
-        alert("名前を入力してください");
-        return;
-    }
-
-    userId =
-    crypto.randomUUID();
-
-    const stream =
-    await navigator.mediaDevices.getUserMedia({
-
-        video:{
-            deviceId:
-            cameraList.value
-            ? {exact:cameraList.value}
-            : undefined
-        },
-
-        audio:{
-            deviceId:
-            micList.value
-            ? {exact:micList.value}
-            : undefined
-        }
-
-    });
-
-    stream.getVideoTracks()
-    .forEach(track=>{
-        track.enabled =
-        document.getElementById("cameraEnabled")
-        .checked;
-    });
-
-    stream.getAudioTracks()
-    .forEach(track=>{
-        track.enabled =
-        document.getElementById("micEnabled")
-        .checked;
-    });
-
-    document
-    .getElementById("localVideo")
-    .srcObject = stream;
-
-    await set(
-        ref(db,
-        "participants/" + userId),
-        {
-            name:name
-        }
-    );
-
-    document
-    .getElementById("displayName")
-    .textContent = name;
-
-    document
-    .getElementById("join")
-    .style.display = "none";
-
-    document
-    .getElementById("room")
-    .style.display = "block";
-});
-
-window.addEventListener(
-"beforeunload",
-async()=>{
-
-    if(!userId) return;
-
-    await remove(
-        ref(db,
-        "participants/" + userId)
-    );
-
-});
-
-</script>
+<script type="module" src="./app.js"></script>
 
 </body>
 </html>
