@@ -2,32 +2,29 @@ import {
 ref,
 set,
 onValue,
-onDisconnect
+onDisconnect,
+serverTimestamp
 }
-from
-"https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
-import { db }
-from "./firebase.js";
+import { db } from "./firebase.js";
 
 export let myId = null;
 
 export async function joinRoom(name){
 
-myId =
-crypto.randomUUID();
+myId = crypto.randomUUID();
 
 await set(
-ref(db,
-"participants/" + myId),
+ref(db,"participants/" + myId),
 {
-name
+name,
+joinedAt:Date.now()
 }
 );
 
 onDisconnect(
-ref(db,
-"participants/" + myId)
+ref(db,"participants/" + myId)
 ).remove();
 
 }
@@ -38,9 +35,10 @@ onValue(
 ref(db,"participants"),
 snapshot=>{
 
-callback(
-snapshot.val() || {}
-);
+const data =
+snapshot.val() || {};
+
+callback(data);
 
 });
 
