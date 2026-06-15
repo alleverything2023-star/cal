@@ -292,18 +292,20 @@ tabButtons.forEach(button => {
   });
 });
 
-// チャット
+// チャット (通信を停止し、ローカルログ表示のみ残す)
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
   if (!text) return;
 
+  // 自分の画面にだけメッセージを表示
   appendMessage(currentUserName, text, true);
 
-  broadcastMessage({
-    sender: currentUserName,
-    text: text
-  });
+  // 【通信を停止】
+  // broadcastMessage({
+  //   sender: currentUserName,
+  //   text: text
+  // });
 
   chatInput.value = "";
   chatInput.focus();
@@ -334,9 +336,10 @@ function scrollToBottom() {
   if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-registerOnMessage((sender, text) => {
-  appendMessage(sender, text, false);
-});
+// 【通信を停止】
+// registerOnMessage((sender, text) => {
+//   appendMessage(sender, text, false);
+// });
 
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
 if (chatInput) {
@@ -346,17 +349,5 @@ if (chatInput) {
     }
   });
 }
-// --- webrtc.js から直接呼び出せるようにグローバルに登録 ---
-window.getGlobalLocalStream = function() {
-  return localStream;
-};
 
-window.handleRemoteStreamGlobal = function(peerId, remoteStream) {
-  // 参加者リスト（room.js）から相手の名前を探す、無ければ「ゲスト」
-  const participant = roomParticipants[peerId];
-  const name = participant ? participant.name : "参加者";
-  addVideoCard(peerId, name, remoteStream);
-};
-// --------------------------------------------------------
-
-init(); // もともとある最下部の init()
+init();
