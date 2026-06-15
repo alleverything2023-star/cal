@@ -178,7 +178,7 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 自分のカメラボタントグル（ヘッダーボタン・カード内斜線と連動）
+// 自分のカメラボタントグル
 myCamBtn.addEventListener("click", () => {
   const t = localStream.getVideoTracks()[0];
   if (t) { 
@@ -188,7 +188,7 @@ myCamBtn.addEventListener("click", () => {
   }
 });
 
-// 自分のマイクボタントグル（ヘッダーボタン・カード内斜線と連動）
+// 自分のマイクボタントグル
 myMicBtn.addEventListener("click", () => {
   const t = localStream.getAudioTracks()[0];
   if (t) { 
@@ -198,13 +198,14 @@ myMicBtn.addEventListener("click", () => {
   }
 });
 
-// 4. 通話相手のビデオカード生成と状態監視
+// 4. ★通話相手のビデオカード生成と状態監視（自分の形式と完全に同一に統合）
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
   const card = document.createElement("div");
   card.className = "videoCard";
   card.id = `card-${id}`;
   
+  // 自分と全く同一のインラインSVGおよびクラス構成で相手用の表示バーを作成
   card.innerHTML = `
     <div class="video-wrapper"><video autoplay playsinline></video></div>
     <div class="videoControlBar">
@@ -234,10 +235,12 @@ function addVideoCard(id, name, stream) {
   const camIndicator = card.querySelector(`#camStatus-${id}`);
   const micIndicator = card.querySelector(`#micStatus-${id}`);
   
-  // 定期的に相手のトラック状態をチェックし、カード内斜線表示を同期
+  // 定期的に相手のストリームからトラック状態をチェックし、ON/OFF（斜線）をリアルタイム連動
   setInterval(() => {
     const vTrack = stream.getVideoTracks()[0];
     const aTrack = stream.getAudioTracks()[0];
+    
+    // トラックが存在し、かつ有効(enabled)であり、ミュート(muted)されていないかを判定
     if (vTrack) camIndicator.classList.toggle("on", vTrack.enabled && !vTrack.muted);
     if (aTrack) micIndicator.classList.toggle("on", aTrack.enabled && !aTrack.muted);
   }, 500);
