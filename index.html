@@ -1,69 +1,63 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Call Site</title>
-<link rel="stylesheet" href="./style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ブラウザ通話アプリ</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<div id="joinScreen">
+  <div id="joinScreen">
+    <div class="setup-container">
+      <h2>通話に参加</h2>
+      
+      <div class="preview-box">
+        <video id="myPreviewVideo" autoplay playsinline muted></video>
+        <div id="previewFallback" class="fallback-text" style="display: none;">カメラOFF</div>
+      </div>
 
-<h1>Call Site</h1>
+      <div class="toggle-controls">
+        <label>
+          <input type="checkbox" id="initCameraToggle" checked> カメラをONにする
+        </label>
+        <label>
+          <input type="checkbox" id="initMicToggle" checked> マイクをONにする
+        </label>
+      </div>
 
-<input
-id="nameInput"
-placeholder="名前">
+      <div class="device-selects">
+        <div class="select-field">
+          <label for="cameraSelect">カメラ:</label>
+          <select id="cameraSelect"></select>
+        </div>
+        <div class="select-field">
+          <label for="micSelect">マイク:</label>
+          <select id="micSelect"></select>
+        </div>
+      </div>
 
-<select id="cameraSelect"></select>
+      <div class="join-form">
+        <input type="text" id="nameInput" placeholder="表示名を入力してください" maxlength="15">
+        <button id="joinButton">入室する</button>
+      </div>
+    </div>
+  </div>
 
-<select id="micSelect"></select>
+  <div id="roomScreen" style="display: none;">
+    <div id="videoGrid">
+      <div class="videoCard" id="myVideoCard">
+        <video id="myLocalVideo" autoplay playsinline muted></video>
+        <div class="videoName" id="myLocalName">あなた</div>
+      </div>
+    </div>
 
-<label>
-<input
-type="checkbox"
-id="cameraEnabled"
-checked>
-カメラON
-</label>
+    <div id="sidebar">
+      <h3>参加者一覧</h3>
+      <ul id="participantList"></ul>
+    </div>
+  </div>
 
-<label>
-<input
-type="checkbox"
-id="micEnabled"
-checked>
-マイクON
-</label>
-
-<button id="joinButton">
-入室
-</button>
-
-<p id="status"></p>
-
-</div>
-
-<div id="roomScreen">
-
-<div id="topBar">
-<span id="myName"></span>
-</div>
-
-<div id="videoGrid"></div>
-
-<div id="participantPanel">
-
-<h3>参加者</h3>
-
-<ul id="participantList"></ul>
-
-</div>
-
-</div>
-
-<script type="module" src="./app.js"></script>
-
+  <script type="module" src="app.js"></script>
 </body>
 </html>
