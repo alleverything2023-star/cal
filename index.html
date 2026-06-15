@@ -14,7 +14,6 @@
       
       <div class="preview-box">
         <video id="myPreviewVideo" autoplay playsinline muted></video>
-        <div id="previewFallback" class="fallback-text" style="display: none;">カメラOFF</div>
       </div>
 
       <div class="toggle-controls">
@@ -77,21 +76,20 @@
               <div class="videoControlBar">
                 <span class="videoName" id="myLocalName">あなた</span>
                 <div class="btn-group">
-                  <button id="myCamBtn" class="action-btn">
-                    <svg class="icon-svg icon-cam" viewBox="0 0 24 24">
-                      <path class="cam-body" d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
-                      <polygon class="cam-lens" points="17 11 22 8 22 16 17 13"/>
+                  <div id="myCamStatus" class="status-indicator on">
+                    <svg class="icon-svg" viewBox="0 0 24 24">
+                      <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
+                      <polygon points="17 11 22 8 22 16 17 13"/>
                       <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
                     </svg>
-                  </button>
-                  
-                  <button id="myMicBtn" class="action-btn">
-                    <svg class="icon-svg icon-mic" viewBox="0 0 24 24">
-                      <rect class="mic-body" x="9" y="2" width="6" height="11" rx="3"/>
-                      <path class="mic-stand" d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
+                  </div>
+                  <div id="myMicStatus" class="status-indicator on">
+                    <svg class="icon-svg" viewBox="0 0 24 24">
+                      <rect x="9" y="2" width="6" height="11" rx="3"/>
+                      <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
                       <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
                     </svg>
-                  </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -101,7 +99,30 @@
       </div>
 
       <div id="bottomContainer">
-        <p style="color: var(--text-muted); font-size: 0.8rem;">※ボトムバー</p>
+        <div class="control-bar-tools">
+          <button id="myCamBtn" class="tool-btn on" title="カメラON/OFF">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
+              <polygon points="17 11 22 8 22 16 17 13"/>
+              <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
+            </svg>
+          </button>
+          
+          <button id="myMicBtn" class="tool-btn on" title="マイクON/OFF">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <rect x="9" y="2" width="6" height="11" rx="3"/>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
+              <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
+            </svg>
+          </button>
+
+          <button id="layoutToggleBtn" class="tool-btn on" title="比（レイアウト）を変更">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
+              <line x1="12" y1="3" x2="12" y2="21" stroke-width="2"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
