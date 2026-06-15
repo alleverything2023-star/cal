@@ -1,4 +1,3 @@
-/* テーマ設定（変数） */
 .dark-theme {
   --bg-main: #1e1f22;
   --bg-card: #2b2d31;
@@ -10,7 +9,6 @@
   --danger: #da373c;
   --success: #248046;
 }
-
 .light-theme {
   --bg-main: #f2f3f5;
   --bg-card: #ffffff;
@@ -22,30 +20,10 @@
   --danger: #da373c;
   --success: #248046;
 }
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
-body, html {
-  width: 100%;
-  height: 100dvh;
-  font-family: -apple-system, sans-serif;
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  overflow: hidden;
-}
-
-/* --- 入室前画面 --- */
-#joinScreen {
-  display: flex; justify-content: center; align-items: center;
-  width: 100%; height: 100dvh;
-  background-color: var(--bg-main);
-  padding: 20px;
-}
-.setup-container {
-  background: var(--bg-card); padding: 35px; border-radius: 16px;
-  width: 100%; max-width: 500px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.3); text-align: center;
-}
+body, html { width: 100%; height: 100dvh; font-family: -apple-system, sans-serif; background-color: var(--bg-main); color: var(--text-main); overflow: hidden; }
+#joinScreen { display: flex; justify-content: center; align-items: center; width: 100%; height: 100dvh; background-color: var(--bg-main); padding: 20px; }
+.setup-container { background: var(--bg-card); padding: 35px; border-radius: 16px; width: 100%; max-width: 500px; box-shadow: 0 12px 32px rgba(0,0,0,0.3); text-align: center; }
 .setup-container h2 { margin-bottom: 20px; font-size: 1.6rem; }
 .preview-box { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
 .preview-box video { width: 100%; height: 100%; object-fit: cover; }
@@ -56,8 +34,6 @@ body, html {
 .select-field label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
 select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg-input); color: var(--text-main); font-size: 1rem; }
 #joinButton { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; margin-top: 25px; font-size: 1.1rem; cursor: pointer; }
-
-/* --- 設定モーダル --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; justify-content: center; align-items: center; }
 .modal-content { background: var(--bg-card); padding: 25px; border-radius: 12px; width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 .modal-content h3 { margin-bottom: 20px; }
@@ -65,186 +41,59 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .modal-item label { display: block; font-size: 0.9rem; margin-bottom: 5px; }
 .modal-item button { padding: 8px 12px; cursor: pointer; }
 .close-btn { width: 100%; padding: 10px; margin-top: 10px; background: #666; color: #fff; border: none; border-radius: 6px; cursor: pointer;}
-
-/* --- 左右分割レイアウト & 比変更の仕組み --- */
 .app-layout { display: flex; flex-direction: column; width: 100vw; height: 100dvh; }
 .main-content { display: flex; flex: 1; width: 100%; overflow: hidden; min-height: 0; }
-
-/* 1. 通常比率モード：左カメラゾーンが広め (7:3) */
-.layout-default #leftContainer {
-  flex: 7;
-  background: var(--bg-left);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  transition: flex 0.25s ease;
-}
-.layout-default #rightContainer {
-  flex: 3;
-  background: var(--bg-card);
-  border-left: 1px solid #2b2d31;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  transition: flex 0.25s ease;
-}
-
-/* 2. 比変更モード：左カメラゾーンを「1/5」サイズに縮小 (1:4) */
-.layout-sidebar #leftContainer {
-  flex: 1;
-  background: var(--bg-left);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 15px 5px;
-  transition: flex 0.25s ease;
-}
-.layout-sidebar #rightContainer {
-  flex: 4;
-  background: var(--bg-card);
-  border-left: 1px solid #2b2d31;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  transition: flex 0.25s ease;
-}
-
-/* 通常時の自動グリッド */
-.layout-default #videoGrid {
-  display: grid;
-  gap: 20px;
-  width: 100%;
-  height: 100%;
-  padding: 20px;
-  justify-content: center;
-  align-content: center;
-  box-sizing: border-box;
-}
-
+.layout-default #leftContainer { flex: 7; background: var(--bg-left); display: flex; justify-content: center; align-items: center; overflow: hidden; transition: flex 0.25s ease; }
+.layout-default #rightContainer { flex: 3; background: var(--bg-card); border-left: 1px solid #2b2d31; padding: 15px; display: flex; flex-direction: column; transition: flex 0.25s ease; }
+.layout-sidebar #leftContainer { flex: 1; background: var(--bg-left); overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 15px 5px; transition: flex 0.25s ease; }
+.layout-sidebar #rightContainer { flex: 4; background: var(--bg-card); border-left: 1px solid #2b2d31; padding: 15px; display: flex; flex-direction: column; transition: flex 0.25s ease; }
+.layout-default #videoGrid { display: grid; gap: 20px; width: 100%; height: 100%; padding: 20px; justify-content: center; align-content: center; box-sizing: border-box; }
 .layout-default #videoGrid.count-1 { grid-template-columns: minmax(200px, 650px); }
 .layout-default #videoGrid.count-2 { grid-template-columns: repeat(2, minmax(150px, 500px)); }
 .layout-default #videoGrid.count-3 { grid-template-columns: repeat(2, minmax(150px, 450px)); }
 .layout-default #videoGrid.count-3 .videoCard:nth-child(1) { grid-column: 1 / span 2; width: 50%; justify-self: center; }
 .layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 480px)); }
 .layout-default #videoGrid.count-many { grid-template-columns: repeat(3, 1fr); }
-
-/* 比変更ボタン（1/5モード）が押された時の縦一列レイアウト */
-.layout-sidebar #videoGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  width: 100%;
-  height: auto;
-  padding: 10px;
-}
-.layout-sidebar .videoCard {
-  width: 100% !important;
-}
-
-/* ★ ビデオカード自体は「中の要素（16:9映像 + 46px固定バー）」の合計値で自動伸縮するよう変更 */
-.videoCard {
-  background: var(--bg-card);
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-  width: 100%;
-  height: max-content; /* 縦幅を無理に固定しない */
-}
-
-/* ★ どんなアスペクト比の映像（スマホ縦など）が来ても、必ず16:9の枠に収める */
-.video-wrapper { 
-  width: 100%;
-  aspect-ratio: 16 / 9; /* 映像エリアの比率を完全に固定 */
-  background: #000000; 
-  display: flex; 
-  justify-content: center; 
-  align-items: center;
-  overflow: hidden;
-}
-.video-wrapper video { 
-  width: 100%; 
-  height: 100%; 
-  object-fit: contain; /* スマホ縦画面の場合は左右に黒帯を入れて全体を収める（はみ出し防止） */
-}
-
-/* ★ 名前とアイコンがあるコントロールバー（高さ制限をガチガチに固定） */
-.videoControlBar { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 0 14px; 
-  background: #232428; 
-  height: 46px; 
-  min-height: 46px; /* 絶対に縮まないように固定 */
-  max-height: 46px; 
-  box-sizing: border-box;
-}
+.layout-sidebar #videoGrid { display: flex; flex-direction: column; gap: 15px; width: 100%; height: auto; padding: 10px; }
+.layout-sidebar .videoCard { width: 100% !important; }
+.videoCard { background: var(--bg-card); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 20px rgba(0,0,0,0.3); width: 100%; height: max-content; }
+.video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000000; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+.video-wrapper video { width: 100%; height: 100%; object-fit: contain; }
+.videoControlBar { display: flex; justify-content: space-between; align-items: center; padding: 0 14px; background: #232428; height: 46px; min-height: 46px; max-height: 46px; box-sizing: border-box; }
 .videoName { font-size: 0.88rem; color: #fff; font-weight: 500; }
 .btn-group { display: flex; gap: 8px; }
-
-/* SVGグラフィック設定 */
-.icon-svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.icon-svg .slash-line {
-  stroke: #da373c;
-  stroke-width: 2.5;
-  display: none;
-}
-
-/* カード内の状態表示インジケータ */
+.icon-svg { width: 18px; height: 18px; fill: none; stroke: #ffffff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-svg .slash-line { stroke: #da373c; stroke-width: 2.5; display: none; }
 .status-indicator { display: flex; align-items: center; justify-content: center; }
 .status-indicator:not(.on) .slash-line { display: block; }
 .status-indicator:not(.on) .icon-svg { stroke: #686b74; }
-
-/* 右側：ヘッダーエリア */
-.side-panel-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  height: 45px;
-  margin-bottom: 20px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-/* ボタンの共通デザイン */
-.action-control-btn {
-  background: #313338;
-  border: none;
-  color: #fff;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.12s;
-}
+.side-panel-header { display: flex; justify-content: flex-end; align-items: center; gap: 10px; width: 100%; height: 45px; margin-bottom: 20px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.action-control-btn { background: #313338; border: none; color: #fff; width: 42px; height: 42px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.12s; }
 .action-control-btn:hover { background: #3f4147; }
 .action-control-btn .icon-svg { width: 20px; height: 20px; }
-
-/* 設定用歯車ボタン */
 .settings-gear { font-size: 1.2rem; background: rgba(0,0,0,0.3); }
 .settings-gear:hover { background: rgba(0,0,0,0.5); }
-
-/* ミュート時の赤枠・赤斜線 */
 .action-control-btn:not(.settings-gear):not(.on) { background: rgba(218, 55, 60, 0.15); }
 .action-control-btn:not(.settings-gear):not(.on) .slash-line { display: block; }
 .action-control-btn:not(.settings-gear):not(.on) .icon-svg { stroke: #b5bac1; }
+.side-panel-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 
-.side-panel-body { flex: 1; }
+/* --- ここから追加分 --- */
+.tab-content { display: none; width: 100%; height: 100%; flex-direction: column; min-height: 0; }
+.tab-content.active { display: flex; }
+.chat-container { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 10px; background: rgba(0, 0, 0, 0.1); border-radius: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.chat-system { font-size: 0.8rem; color: var(--text-muted); text-align: center; margin: 5px 0; }
+.chat-bubble { background: var(--bg-main); padding: 8px 12px; border-radius: 8px; max-width: 85%; width: max-content; font-size: 0.9rem; line-height: 1.4; word-break: break-all; }
+.chat-bubble.my-msg { background: var(--accent); color: #fff; align-self: flex-end; }
+.chat-user-name { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; }
+.chat-input-area { display: flex; gap: 8px; padding-top: 5px; }
+.chat-input-area input[type="text"] { margin-top: 0; flex: 1; padding: 10px; }
+#chatSendBtn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 16px; font-weight: bold; cursor: pointer; }
+#chatSendBtn:hover { opacity: 0.9; }
+.tab-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-style: italic; }
+.side-tab-bar { display: flex; height: 50px; min-height: 50px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; gap: 4px; }
+.tab-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.1rem; transition: all 0.15s; }
+.tab-btn span { font-size: 0.65rem; margin-top: 2px; }
+.tab-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
+.tab-btn.active { background: var(--bg-main); color: var(--accent); font-weight: bold; }
