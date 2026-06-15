@@ -92,7 +92,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 
 /* 2. 比変更モード：左カメラゾーンを「1/5」サイズに縮小 (1:4) */
 .layout-sidebar #leftContainer {
-  flex: 1; /* 全体の1/5 */
+  flex: 1;
   background: var(--bg-left);
   overflow-y: auto;
   display: flex;
@@ -103,7 +103,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   transition: flex 0.25s ease;
 }
 .layout-sidebar #rightContainer {
-  flex: 4; /* 全体の4/5 */
+  flex: 4;
   background: var(--bg-card);
   border-left: 1px solid #2b2d31;
   padding: 15px;
@@ -193,22 +193,19 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   display: none;
 }
 
-/* カード内の状態表示インジケータ */
+/* カード内の状態表示インジケータ（自分・他人の両方に完全適用） */
 .status-indicator { display: flex; align-items: center; justify-content: center; }
 .status-indicator:not(.on) .slash-line { display: block; }
 .status-indicator:not(.on) .icon-svg { stroke: #686b74; }
 
-
-/* =================================================== */
-/* ★ 右側：設定と同じ高さで横に一列並びするヘッダーエリア */
-/* =================================================== */
+/* 右側：設定と同じ高さで横に一列並びするヘッダーエリア */
 .side-panel-header {
   display: flex;
-  justify-content: flex-end; /* 右寄せに整列 */
+  justify-content: flex-end;
   align-items: center;
-  gap: 10px;                  /* ボタン間の間隔 */
+  gap: 10px;
   width: 100%;
-  height: 45px;               /* ⚙️ボタンの高さとジャスト同期 */
+  height: 45px;
   margin-bottom: 20px;
   padding-bottom: 5px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -231,25 +228,13 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .action-control-btn:hover { background: #3f4147; }
 .action-control-btn .icon-svg { width: 20px; height: 20px; }
 
-/* 設定用歯車ボタンの個別調整 */
-.settings-gear {
-  font-size: 1.2rem;
-  background: rgba(0,0,0,0.3);
-}
+/* 設定用歯車ボタン */
+.settings-gear { font-size: 1.2rem; background: rgba(0,0,0,0.3); }
 .settings-gear:hover { background: rgba(0,0,0,0.5); }
 
 /* ミュート（OFF）のときの赤斜線スタイル（ヘッダーボタン用） */
-.action-control-btn:not(.settings-gear):not(.on) { 
-  background: rgba(218, 55, 60, 0.15); 
-}
-.action-control-btn:not(.settings-gear):not(.on) .slash-line { 
-  display: block; 
-}
-.action-control-btn:not(.settings-gear):not(.on) .icon-svg { 
-  stroke: #b5bac1; 
-}
+.action-control-btn:not(.settings-gear):not(.on) { background: rgba(218, 55, 60, 0.15); }
+.action-control-btn:not(.settings-gear):not(.on) .slash-line { display: block; }
+.action-control-btn:not(.settings-gear):not(.on) .icon-svg { stroke: #b5bac1; }
 
-/* 操作パネルの下部空間 */
-.side-panel-body {
-  flex: 1;
-}
+.side-panel-body { flex: 1; }
