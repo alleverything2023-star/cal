@@ -1,8 +1,18 @@
 export async function getLocalStream(cameraId = null, micId = null) {
+  // iPad/iOS向けに、特定のID指定がない場合は、デフォルトの「前面カメラ（user）」を優先する設定
+  const videoConstraints = cameraId 
+    ? { deviceId: { exact: cameraId } } 
+    : { facingMode: "user" };
+
+  const audioConstraints = micId 
+    ? { deviceId: { exact: micId } } 
+    : true;
+
   const constraints = {
-    video: cameraId ? { deviceId: { exact: cameraId } } : true,
-    audio: micId ? { deviceId: { exact: micId } } : true
+    video: videoConstraints,
+    audio: audioConstraints
   };
+
   return await navigator.mediaDevices.getUserMedia(constraints);
 }
 
@@ -11,6 +21,7 @@ export async function updateDeviceList() {
   const micSelect = document.getElementById("micSelect");
   if (!cameraSelect || !micSelect) return;
 
+  // デバイス一覧を取得する前にパーミッションが確定している必要があります
   const devices = await navigator.mediaDevices.enumerateDevices();
   cameraSelect.innerHTML = "";
   micSelect.innerHTML = "";
