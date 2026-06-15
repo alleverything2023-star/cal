@@ -1,10 +1,15 @@
-import { myId, sendSignalingMessage } from "./room.js";
+import { myId, sendSignalingMessage, listenSignalingMessage } from "./room.js";
 
 export const peerConnections = {};
 const dataChannels = {};
 let onMessageCallback = null;
 let localStreamRef = null;
 let onRemoteStreamRef = null;
+
+// アプリ起動時にシグナリングの受信待機を自動開始
+listenSignalingMessage((fromPeerId, signalingData) => {
+  handleSignalingMessage(fromPeerId, signalingData);
+});
 
 export function registerOnMessage(callback) {
   onMessageCallback = callback;
@@ -39,12 +44,14 @@ export function startP2P(peerId, localStream, onRemoteStream) {
     if (onRemoteStream) onRemoteStream(peerId, e.streams[0]);
   };
 
+  // 接続経路（ICE）が見つかったら即座にサーバー経由で相手に転送
   pc.onicecandidate = (e) => {
     if (e.candidate) {
-      sendSignalingMessage(peerId, { from: myId, type: "candidate", candidate: e.candidate });
+      sendSignalingMessage(peerId, { type: "candidate", candidate: e.candidate });
     }
   };
 
+  // IDの比較による衝突回避ルール（小さいIDのユーザーがオファー側になる）
   if (myId < peerId) {
     const dc = pc.createDataChannel("chatChannel");
     setupDataChannel(peerId, dc);
@@ -52,7 +59,7 @@ export function startP2P(peerId, localStream, onRemoteStream) {
     pc.createOffer()
       .then(offer => pc.setLocalDescription(offer))
       .then(() => {
-        sendSignalingMessage(peerId, { from: myId, type: "offer", sdp: pc.localDescription });
+        sendSignalingMessage(peerId, { type: "offer", sdp: pc.localDescription });
       })
       .catch(err => console.error("Offer作成失敗:", err));
   }
@@ -84,7 +91,10 @@ function setupDataChannel(peerId, dc) {
   };
 }
 
-export async function handleSignalingMessage(fromPeerId, data) {
+/**
+ * room.js の受信リスナー経由で自動的に呼び出される
+ */
+async function handleSignalingMessage(fromPeerId, data) {
   let pc = peerConnections[fromPeerId];
   
   if (!pc && data.type === "offer") {
@@ -99,7 +109,7 @@ export async function handleSignalingMessage(fromPeerId, data) {
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      sendSignalingMessage(fromPeerId, { from: myId, type: "answer", sdp: pc.localDescription });
+      sendSignalingMessage(fromPeerId, { type: "answer", sdp: pc.localDescription });
     } else if (data.type === "answer") {
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
     } else if (data.type === "candidate") {
