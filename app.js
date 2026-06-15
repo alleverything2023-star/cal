@@ -22,6 +22,10 @@ const videoGrid = document.getElementById("videoGrid");
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 
+// 今回新しく追加したレイアウト切り替え要素
+const appLayout = document.getElementById("appLayout");
+const layoutToggleBtn = document.getElementById("layoutToggleBtn");
+
 // 1. 【起動時初期化】
 async function init() {
   try {
@@ -74,13 +78,12 @@ function toggleTracksByCheckbox() {
 initCameraToggle.addEventListener("change", toggleTracksByCheckbox);
 initMicToggle.addEventListener("change", toggleTracksByCheckbox);
 
-// 4. 通話中のカメラ・マイクボタン制御（自分用・色の反転ロジック）
+// 4. 通話中のカメラ・マイクボタン制御（自分用）
 myCamBtn.addEventListener("click", () => {
   if (!localStream) return;
   const videoTrack = localStream.getVideoTracks()[0];
   if (videoTrack) {
     videoTrack.enabled = !videoTrack.enabled;
-    // 有効（ON）のときに「on」クラスをつける（緑化）
     myCamBtn.classList.toggle("on", videoTrack.enabled);
   }
 });
@@ -94,6 +97,22 @@ myMicBtn.addEventListener("click", () => {
   }
 });
 
+
+// ─── 新機能：レイアウトの2パターン切り替え処理 ───
+layoutToggleBtn.addEventListener("click", () => {
+  if (appLayout.classList.contains("layout-default")) {
+    // サイドバーモード（カメラ1/5、右4/5）に切り替え
+    appLayout.classList.remove("layout-default");
+    appLayout.classList.add("layout-sidebar");
+  } else {
+    // 通常モード（左7、右3）に切り替え
+    appLayout.classList.remove("layout-sidebar");
+    appLayout.classList.add("layout-default");
+  }
+});
+// ────────────────────────────────────────────────
+
+
 // 5. 【入室ボタンクリック時】
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
@@ -101,9 +120,8 @@ joinButton.addEventListener("click", async () => {
 
   toggleTracksByCheckbox();
 
-  // 入室前の設定に合わせて、ボタンの「on」クラスの初期状態を決定
   myCamBtn.classList.toggle("on", initCameraToggle.checked);
-  myMicBtn.classList.toggle("on", initMicToggle.checked);
+  myMicBtn.classList.toggle("off", !initMicToggle.checked);
 
   await joinRoom(name);
 
@@ -139,7 +157,7 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 6. ビデオカードの動的生成（他人のカードにはボタンを作らず名前だけに修正）
+// 6. ビデオカードの動的生成
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
 
@@ -163,7 +181,6 @@ function addVideoCard(id, name, stream) {
   nameDiv.className = "videoName";
   nameDiv.textContent = name;
 
-  // 他人のカードにはボタンを追加しない（nameDivのみ入れる）
   controlBar.appendChild(nameDiv);
   
   card.appendChild(wrapper);
