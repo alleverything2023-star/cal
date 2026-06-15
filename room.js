@@ -13,16 +13,34 @@ let signalingListener = null;
 export async function joinRoom(name) {
   roomParticipants[myId] = { name: name };
   
-  // 1. 【安全策】入室前に、自分宛ての古いシグナリングの箱が万が一残っていたら完全に消去する
+  // 入室前に、自分宛ての古いシグナリングの箱が万が一残っていたら完全に消去する
   await remove(signalingRef);
 
-  // 2. Firebaseに自分の参加情報を書き込む
+  // Firebaseに自分の参加情報を書き込む
   const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
   await set(myParticipantRef, { name: name });
   console.log(`${name} としてFirebaseの部屋に参加しました。ID: ${myId}`);
 
-  // 3. 【自動削除】ブラウザを閉じた時や、回線が切れて退室した時に自動で自分を消す設定
+  // 【接続切れ・アプリ強制終了対策】
+  // 万が一、下のページを閉じるイベントが間に合わなかった場合でも、
+  // 数分以内にFirebase側が通信切れを検知して自動削除します
   onDisconnect(myParticipantRef).remove();
+
+  // 【iPad/Safari対策】タブを閉じる・リロードする瞬間に強制的に削除を実行する
+  const leaveRoomData = () => {
+    // データベースのURLを取得して、標準のfetchAPIで直接削除命令を送りつける（Safariでも高確率で間に合う設定）
+    const targetUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/participants/${myId}.json`;
+    
+    // keepalive: true をつけることで、ブラウザが閉じられても裏側で送信を完了させてくれます
+    fetch(targetUrl, {
+      method: "DELETE",
+      keepalive: true
+    });
+  };
+
+  // Safari用：ページが隠れたり閉じたりするイベントに紐付け
+  window.addEventListener("pagehide", leaveRoomData);
+  window.addEventListener("beforeunload", leaveRoomData);
 }
 
 export function listenParticipants(callback) {
@@ -73,7 +91,7 @@ export function listenSignalingMessage(callback) {
       if (signalingListener) {
         signalingListener(msg.from, msg.data);
       }
-      // 処理したシグナリングメッセージは、データベースが肥大化しないように即座に削除
+      // 処理したシグナリングメッセージは即座に削除
       remove(snapshot.ref);
     }
   });
