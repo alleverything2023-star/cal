@@ -1,6 +1,6 @@
 import { joinRoom, listenParticipants, myId, updateMyName } from "./room.js";
 import { getLocalStream, updateDeviceList } from "./devices.js";
-import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
+import { startP2P, closeP2P, peerConnections, broadcastMessage, registerOnMessage } from "./webrtc.js";
 
 let localStream = null;
 let isJoined = false;
@@ -58,7 +58,6 @@ async function init() {
 async function handleDeviceChange() {
   if (!localStream) return;
   
-  // 既存のトラックを安全に停止
   localStream.getTracks().forEach(track => { 
     try { track.stop(); } catch(err) { console.error(err); }
     localStream.removeTrack(track); 
@@ -248,7 +247,6 @@ function addVideoCard(id, name, stream) {
   const camIndicator = card.querySelector(`#camStatus-${id}`);
   const micIndicator = card.querySelector(`#micStatus-${id}`);
   const intervalId = setInterval(() => {
-    // カードが消えていたらポーリングを停止
     if (!document.getElementById(`card-${id}`)) {
       clearInterval(intervalId);
       return;
@@ -280,13 +278,21 @@ tabButtons.forEach(button => {
   });
 });
 
-// チャット送信・表示処理
+// チャット送信処理
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
   if (!text) return;
 
+  // 自分の画面に描画
   appendMessage(currentUserName, text, true);
+
+  // WebRTC経由で相手全員にブロードキャスト送信
+  broadcastMessage({
+    sender: currentUserName,
+    text: text
+  });
+
   chatInput.value = "";
   chatInput.focus();
 }
@@ -315,6 +321,11 @@ function appendMessage(sender, text, isMe = false) {
 function scrollToBottom() {
   if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
+// 相手からWebRTCデータチャンネル経由でメッセージを受け取った時のイベントを登録
+registerOnMessage((sender, text) => {
+  appendMessage(sender, text, false);
+});
 
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
 if (chatInput) {
