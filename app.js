@@ -5,6 +5,7 @@ import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 let localStream = null;
 let isJoined = false;
 
+// 要素の取得
 const joinScreen = document.getElementById("joinScreen");
 const roomScreen = document.getElementById("roomScreen");
 const myPreviewVideo = document.getElementById("myPreviewVideo");
@@ -23,6 +24,7 @@ const myMicBtn = document.getElementById("myMicBtn");
 const appLayout = document.getElementById("appLayout");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
 
+// 設定モーダル関連
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
@@ -40,18 +42,17 @@ async function init() {
   } catch (e) { alert("カメラ許可が必要です"); }
 }
 
-// 2. デバイス変更時のリアルタイム切り替え処理（改良版）
+// 2. デバイス変更時のリアルタイム切り替え処理（イン・アウトカメラ切り替え対応）
 async function handleDeviceChange() {
   if (!localStream) return;
 
-  // カメラを確実に切り替えるため、古いトラックを完全に停止
+  // 古いトラックを完全に停止してリセット
   localStream.getTracks().forEach(track => {
     track.stop();
     localStream.removeTrack(track);
   });
 
   try {
-    // 新しいカメラ・マイクでストリームを再取得
     const newStream = await getLocalStream(cameraSelect.value, micSelect.value);
     localStream = newStream;
 
@@ -70,7 +71,7 @@ async function handleDeviceChange() {
       if (newVideoTrack) newVideoTrack.enabled = myCamBtn.classList.contains("on");
       if (newAudioTrack) newAudioTrack.enabled = myMicBtn.classList.contains("on");
 
-      // ピア接続のトラックを差し替え
+      // ピア接続（相手への送信映像）のトラックを即時差し替え
       for (const id in peerConnections) {
         const pc = peerConnections[id];
         const senders = pc.getSenders();
@@ -126,6 +127,24 @@ layoutToggleBtn.addEventListener("click", () => {
   appLayout.classList.toggle("layout-sidebar");
 });
 
+// ★イラスト通りの人数別グリッドクラスを適用するヘルパー関数
+function updateGridClass() {
+  const cardCount = videoGrid.querySelectorAll(".videoCard").length;
+  videoGrid.className = ""; // 一旦リセット
+  
+  if (cardCount === 1) {
+    videoGrid.classList.add("count-1");
+  } else if (cardCount === 2) {
+    videoGrid.classList.add("count-2");
+  } else if (cardCount === 3) {
+    videoGrid.classList.add("count-3");
+  } else if (cardCount === 4) {
+    videoGrid.classList.add("count-4");
+  } else if (cardCount > 4) {
+    videoGrid.classList.add("count-many");
+  }
+}
+
 // 7. 入室処理
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
@@ -154,7 +173,10 @@ joinButton.addEventListener("click", async () => {
       if (!participants[id]) {
         closeP2P(id);
         const card = document.getElementById(`card-${id}`);
-        if (card) card.remove();
+        if (card) {
+          card.remove();
+          updateGridClass(); // 誰かが退出したときに配置をリフレッシュ
+        }
       }
     }
     for (const id in participants) {
@@ -173,6 +195,7 @@ joinButton.addEventListener("click", async () => {
         existingCard.querySelector(".videoName").textContent = p.name;
       }
     }
+    updateGridClass(); // 最初の監視起動時にも配置設定
   });
 });
 
@@ -196,6 +219,7 @@ function addVideoCard(id, name, stream) {
   `;
   card.querySelector("video").srcObject = stream;
   videoGrid.appendChild(card);
+  updateGridClass(); // ビデオカードが追加されたら配置を更新
 }
 
 init();
