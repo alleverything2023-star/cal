@@ -74,42 +74,30 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .modal-item button { padding: 8px 12px; cursor: pointer; }
 .close-btn { width: 100%; padding: 10px; margin-top: 10px; background: #666; color: #fff; border: none; border-radius: 6px; cursor: pointer;}
 
-/* --- ルーム画面レイアウト --- */
+/* --- ルーム画面レイアウト（全画面表示化） --- */
 .app-layout { display: flex; flex-direction: column; width: 100vw; height: 100dvh; }
 .main-content { display: flex; flex: 1; width: 100%; overflow: hidden; min-height: 0; }
 
-/* レイアウト別：左側エリアの設定 */
-.layout-default #leftContainer {
-  flex: 7;
+/* 参加者一覧を廃止したため、常時100%いっぱいに広げる */
+#leftContainer {
+  flex: 1;
+  width: 100%;
   background: var(--bg-left);
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
 }
-.layout-sidebar #leftContainer {
-  flex: 1;
-  background: var(--bg-left);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
 
-.layout-default #rightContainer { flex: 3; background: var(--bg-card); border-left: 1px solid #3f4147; padding: 20px; }
-.layout-sidebar #rightContainer { flex: 4; background: var(--bg-card); padding: 20px; }
-
-/* =================================================== */
-/* ★【重要】イラスト通りの可変グリッドシステム（外側余白あり） */
-/* =================================================== */
+/* イラスト通りの可変グリッドシステム（外側余白あり） */
 #videoGrid {
   display: grid;
   gap: 20px;
   width: 100%;
   height: 100%;
-  max-width: 1200px;  /* 横に広がりすぎるのを防止 */
-  max-height: 850px;  /* 縦に広がりすぎるのを防止 */
-  padding: 40px;      /* ★これが「外側のしっかりした余白」になります */
+  max-width: 1200px;
+  max-height: 850px;
+  padding: 40px; /* 外側のしっかりした余白 */
   justify-content: center;
   align-content: center;
   box-sizing: border-box;
@@ -120,37 +108,33 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   grid-template-columns: minmax(200px, 750px);
   grid-template-rows: minmax(150px, 460px);
 }
-
-/* 2人のとき：左右に並べる */
+/* 2人のとき：左右に分割 */
 #videoGrid.count-2 {
   grid-template-columns: repeat(2, minmax(150px, 500px));
   grid-template-rows: minmax(150px, 320px);
 }
-
 /* 3人のとき：上1・下2 */
 #videoGrid.count-3 {
   grid-template-columns: repeat(2, minmax(150px, 460px));
   grid-template-rows: repeat(2, minmax(120px, 280px));
 }
 #videoGrid.count-3 .videoCard:nth-child(1) {
-  grid-column: 1 / span 2; /* 1個目を上の行で横いっぱいに広げる */
+  grid-column: 1 / span 2;
   justify-self: center;
-  width: 50%; /* 下のカードとサイズを合わせる */
+  width: 50%;
 }
-
 /* 4人のとき：田の字型（2×2） */
 #videoGrid.count-4 {
   grid-template-columns: repeat(2, minmax(150px, 500px));
   grid-template-rows: repeat(2, minmax(120px, 300px));
 }
-
-/* 5人以上（予備）：3列並び */
+/* 5人以上：自動で3列並び */
 #videoGrid.count-many {
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(auto-fit, minmax(150px, 1fr));
 }
 
-/* ビデオカード自体の装飾 */
+/* ビデオカードの基本構造 */
 .videoCard {
   background: var(--bg-card);
   border-radius: 12px;
@@ -163,30 +147,73 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   box-sizing: border-box;
 }
 
-/* サイドバーレイアウト時の縦一列配置（上書き設定） */
-.layout-sidebar #videoGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  padding: 15px;
-  overflow-y: auto;
-}
-.layout-sidebar .videoCard {
-  aspect-ratio: 16 / 10;
-  width: 100% !important;
-  height: auto !important;
-}
-
-/* 映像ラップ */
 .video-wrapper { flex: 1; background: #000; display: flex; justify-content: center; align-items: center; }
-.video-wrapper video { width: 100%; height: 100%; object-fit: cover; } /* カードいっぱいに映像を表示 */
+.video-wrapper video { width: 100%; height: 100%; object-fit: cover; }
 
-/* 操作バー */
-.videoControlBar { display: flex; justify-content: space-between; align-items: center; padding: 0 16px; background: #232428; height: 56px; }
+/* 操作バー設定 */
+.videoControlBar { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 0 16px; 
+  background: #232428; 
+  height: 56px; 
+}
 .videoName { font-size: 0.95rem; color: #fff; font-weight: 500; }
-.btn-group { display: flex; gap: 8px; }
-.action-btn { background: var(--danger); border: none; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; height: 32px; }
-.action-btn.on { background: var(--success); }
+.btn-group { display: flex; gap: 10px; }
+
+/* =================================================== */
+/* ★ イラストに忠実なSVGアイコンボタンと斜線表示設定 */
+/* =================================================== */
+.action-btn {
+  background: #3f4147; /* 初期状態（ON）は落ち着いたグレー背景 */
+  border: none; 
+  border-radius: 6px; 
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  transition: background-color 0.2s;
+}
+
+/* SVGグラフィック自体の設定 */
+.icon-svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #ffffff; /* アイコンの線の色 (白) */
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 斜線（初期状態は非表示） */
+.icon-svg .slash-line {
+  stroke: #da373c; /* 斜線はくっきりした赤 */
+  stroke-width: 2.5;
+  display: none; 
+}
+
+/* ★ ミュート状態（OFF）のCSS定義 */
+/* ONのとき（通常状態） */
+.action-btn.on {
+  background: #3f4147;
+}
+/* OFFのとき（ミュート・カメラOFF状態＝斜線表示） */
+.action-btn:not(.on) {
+  background: rgba(218, 55, 60, 0.15); /* ほんのり赤い背景 */
+}
+/* OFFのときに斜線を描画する */
+.action-btn:not(.on) .slash-line {
+  display: block; /* 斜線を表示 */
+}
+/* OFFのときは本体のアイコンの線の色を少しくすませる */
+.action-btn:not(.not-used-class):not(.on) .icon-svg path,
+.action-btn:not(.not-used-class):not(.on) .icon-svg rect,
+.action-btn:not(.not-used-class):not(.on) .icon-svg polygon {
+  stroke: #9da2ac;
+}
 
 #bottomContainer { height: 45px; background: var(--bg-main); border-top: 1px solid #2b2d31; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
-#participantList li { padding: 8px; background: var(--bg-main); margin-bottom: 5px; border-radius: 4px; list-style: none; }
