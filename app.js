@@ -3,9 +3,8 @@ import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 let localStream = null;
-let isJoined = false; // ★入室済みかどうかを判定するフラグを追加
+let isJoined = false;
 
-// 要素の取得
 const joinScreen = document.getElementById("joinScreen");
 const roomScreen = document.getElementById("roomScreen");
 const myPreviewVideo = document.getElementById("myPreviewVideo");
@@ -24,7 +23,6 @@ const myMicBtn = document.getElementById("myMicBtn");
 const appLayout = document.getElementById("appLayout");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
 
-// 設定モーダル関連
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
@@ -42,58 +40,57 @@ async function init() {
   } catch (e) { alert("カメラ許可が必要です"); }
 }
 
-// 2. ★【大幅修正】デバイス（カメラ・マイク）変更時のリアルタイム切り替え処理
+// 2. デバイス変更時のリアルタイム切り替え処理（改良版）
 async function handleDeviceChange() {
   if (!localStream) return;
 
-  // 古いストリームのトラックをすべて停止させて解放する
-  localStream.getTracks().forEach(track => track.stop());
+  // カメラを確実に切り替えるため、古いトラックを完全に停止
+  localStream.getTracks().forEach(track => {
+    track.stop();
+    localStream.removeTrack(track);
+  });
 
   try {
-    // 選択された新しいデバイスでストリームを再取得
-    localStream = await getLocalStream(cameraSelect.value, micSelect.value);
+    // 新しいカメラ・マイクでストリームを再取得
+    const newStream = await getLocalStream(cameraSelect.value, micSelect.value);
+    localStream = newStream;
+
+    const newVideoTrack = localStream.getVideoTracks()[0];
+    const newAudioTrack = localStream.getAudioTracks()[0];
 
     if (!isJoined) {
-      // 【入室前】の場合：プレビュー画面の映像を更新
+      // 入室前
       myPreviewVideo.srcObject = localStream;
-      
-      // チェックボックスの状態を反映
-      const videoTrack = localStream.getVideoTracks()[0];
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
-      if (audioTrack) audioTrack.enabled = initMicToggle.checked;
+      if (newVideoTrack) newVideoTrack.enabled = initCameraToggle.checked;
+      if (newAudioTrack) newAudioTrack.enabled = initMicToggle.checked;
     } else {
-      // 【入室後】の場合：自分の通話画面の映像を更新
+      // 入室後
       myLocalVideo.srcObject = localStream;
 
-      const newVideoTrack = localStream.getVideoTracks()[0];
-      const newAudioTrack = localStream.getAudioTracks()[0];
-
-      // 現在のボタンのON/OFF状態（クラスに 'on' があるか）を新しいトラックに引き継ぐ
       if (newVideoTrack) newVideoTrack.enabled = myCamBtn.classList.contains("on");
       if (newAudioTrack) newAudioTrack.enabled = myMicBtn.classList.contains("on");
 
-      // 接続中のすべての相手（Peer）に対して、新しくなったカメラ・マイクの映像を送り直す（RTCRtpSenderの差し替え）
+      // ピア接続のトラックを差し替え
       for (const id in peerConnections) {
         const pc = peerConnections[id];
         const senders = pc.getSenders();
 
         senders.forEach(sender => {
           if (sender.track && sender.track.kind === "video" && newVideoTrack) {
-            sender.replaceTrack(newVideoTrack);
+            sender.replaceTrack(newVideoTrack).catch(e => console.error(e));
           }
           if (sender.track && sender.track.kind === "audio" && newAudioTrack) {
-            sender.replaceTrack(newAudioTrack);
+            sender.replaceTrack(newAudioTrack).catch(e => console.error(e));
           }
         });
       }
     }
   } catch (e) {
     console.error("デバイスの切り替えに失敗しました:", e);
+    alert("カメラの切り替えに失敗しました。別のアプリがカメラを使用していないか確認してください。");
   }
 }
 
-// セレクトボックスが変更されたら即座に上記の切り替えを実行
 cameraSelect.addEventListener("change", handleDeviceChange);
 micSelect.addEventListener("change", handleDeviceChange);
 
@@ -134,7 +131,6 @@ joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   if (!name) return alert("名前を入力してください");
 
-  // トラック状態の初期反映
   const videoTrack = localStream.getVideoTracks()[0];
   const audioTrack = localStream.getAudioTracks()[0];
   if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
@@ -145,7 +141,7 @@ joinButton.addEventListener("click", async () => {
 
   await joinRoom(name);
   
-  isJoined = true; // ★入室フラグをtrueにする
+  isJoined = true;
   
   joinScreen.style.display = "none";
   roomScreen.style.display = "flex";
@@ -172,7 +168,6 @@ joinButton.addEventListener("click", async () => {
           addVideoCard(peerId, p.name, remoteStream);
         });
       }
-      // 名前が更新された場合への対応
       const existingCard = document.getElementById(`card-${id}`);
       if (existingCard) {
         existingCard.querySelector(".videoName").textContent = p.name;
@@ -181,7 +176,6 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 自分のカメラ・マイクボタン
 myCamBtn.addEventListener("click", () => {
   const t = localStream.getVideoTracks()[0];
   if (t) { t.enabled = !t.enabled; myCamBtn.classList.toggle("on", t.enabled); }
