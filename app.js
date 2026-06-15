@@ -1,6 +1,6 @@
-import { joinRoom, listenParticipants, myId, updateMyName } from "./room.js";
+import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages } from "./room.js";
 import { getLocalStream, updateDeviceList } from "./devices.js";
-import { startP2P, closeP2P, peerConnections, broadcastMessage, registerOnMessage } from "./webrtc.js";
+import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 let localStream = null;
 let isJoined = false;
@@ -44,7 +44,6 @@ const chatMessages = document.getElementById("chatMessages");
 function setVideoSrc(videoElement, stream) {
   if (!videoElement) return;
   videoElement.srcObject = stream;
-  // iOS/iPadOSの自動再生制限対策
   videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
 }
 
@@ -54,7 +53,7 @@ async function init() {
     if (myPreviewVideo) {
       setVideoSrc(myPreviewVideo, localStream);
     }
-    await new Promise(r => setTimeout(r, 300)); // iPadの処理速度を考慮し少し長めに待機
+    await new Promise(r => setTimeout(r, 300));
     await updateDeviceList();
   } catch (e) { 
     console.error("初期化エラー:", e);
@@ -65,7 +64,6 @@ async function init() {
 async function handleDeviceChange() {
   if (!localStream) return;
   
-  // iPad対策：トラックの停止と参照解除を完全に一貫して行う
   localStream.getTracks().forEach(track => { 
     try { track.stop(); } catch(err) { console.error(err); }
   });
@@ -179,6 +177,7 @@ if (joinButton) {
     if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
     if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
 
+    // リアルタイム参加者監視の開始
     listenParticipants((participants) => {
       for (const id in peerConnections) {
         if (!participants[id]) {
@@ -196,6 +195,12 @@ if (joinButton) {
         if (existingCard) { existingCard.querySelector(".videoName").textContent = p.name; }
       }
       updateGridClass();
+    });
+
+    // 【新規】Firebaseからのリアルタイムチャット受信を開始
+    listenChatMessages((sender, text) => {
+      const isMe = (sender === currentUserName);
+      appendMessage(sender, text, isMe);
     });
   });
 }
@@ -292,20 +297,14 @@ tabButtons.forEach(button => {
   });
 });
 
-// チャット (通信を停止し、ローカルログ表示のみ残す)
+// チャット送信処理
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
   if (!text) return;
 
-  // 自分の画面にだけメッセージを表示
-  appendMessage(currentUserName, text, true);
-
-  // 【通信を停止】
-  // broadcastMessage({
-  //   sender: currentUserName,
-  //   text: text
-  // });
+  // 【修正】Firebase経由で全員に向けてメッセージを送信
+  sendChatMessageToFirebase(currentUserName, text);
 
   chatInput.value = "";
   chatInput.focus();
@@ -335,11 +334,6 @@ function appendMessage(sender, text, isMe = false) {
 function scrollToBottom() {
   if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
-
-// 【通信を停止】
-// registerOnMessage((sender, text) => {
-//   appendMessage(sender, text, false);
-// });
 
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
 if (chatInput) {
