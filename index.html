@@ -45,16 +45,34 @@
   </div>
 
   <div id="roomScreen" style="display: none;">
-    <div id="videoGrid">
-      <div class="videoCard" id="myVideoCard">
-        <video id="myLocalVideo" autoplay playsinline muted></video>
-        <div class="videoName" id="myLocalName">あなた</div>
+    <div class="app-container">
+      
+      <div id="leftContainer">
+        <div id="videoGrid">
+          <div class="videoCard" id="myVideoCard">
+            <video id="myLocalVideo" autoplay playsinline muted></video>
+            <div class="videoControlBar">
+              <span class="videoName" id="myLocalName">あなた</span>
+              <div class="btn-group">
+                <button id="myCamBtn" class="action-btn">📷</button>
+                <button id="myMicBtn" class="action-btn">🎤</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div id="sidebar">
-      <h3>参加者一覧</h3>
-      <ul id="participantList"></ul>
+      <div id="rightContainer">
+        <div class="right-content-wrapper">
+          <h3>参加者一覧</h3>
+          <ul id="participantList"></ul>
+          
+          <div class="future-feature-space">
+            <p style="color: #666; font-size: 0.9rem;">※将来の拡張スペース（画面共有・YouTube同期など）</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
