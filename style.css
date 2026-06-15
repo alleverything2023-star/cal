@@ -112,27 +112,25 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   transition: flex 0.25s ease;
 }
 
-/* 通常時の自動グリッド（外側マージン付き） */
+/* ★ 通常時の自動グリッド（縦幅を固定せず、比率で自動計算させる） */
 .layout-default #videoGrid {
   display: grid;
   gap: 20px;
   width: 100%;
   height: 100%;
-  max-width: 1200px;
-  max-height: 850px;
-  padding: 40px;
+  padding: 30px;
   justify-content: center;
   align-content: center;
   box-sizing: border-box;
 }
 
-/* 通常時の人数別配置 */
-.layout-default #videoGrid.count-1 { grid-template-columns: minmax(200px, 750px); grid-template-rows: minmax(150px, 460px); }
-.layout-default #videoGrid.count-2 { grid-template-columns: repeat(2, minmax(150px, 500px)); grid-template-rows: minmax(150px, 320px); }
-.layout-default #videoGrid.count-3 { grid-template-columns: repeat(2, minmax(150px, 460px)); grid-template-rows: repeat(2, minmax(120px, 280px)); }
-.layout-default #videoGrid.count-3 .videoCard:nth-child(1) { grid-column: 1 / span 2; justify-self: center; width: 50%; }
-.layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 500px)); grid-template-rows: repeat(2, minmax(120px, 300px)); }
-.layout-default #videoGrid.count-many { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(auto-fit, minmax(150px, 1fr)); }
+/* 列の割り振りのみを定義し、高さは要素に任せる */
+.layout-default #videoGrid.count-1 { grid-template-columns: minmax(200px, 750px); }
+.layout-default #videoGrid.count-2 { grid-template-columns: repeat(2, minmax(150px, 540px)); }
+.layout-default #videoGrid.count-3 { grid-template-columns: repeat(2, minmax(150px, 480px)); }
+.layout-default #videoGrid.count-3 .videoCard:nth-child(1) { grid-column: 1 / span 2; width: 50%; justify-self: center; }
+.layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 500px)); }
+.layout-default #videoGrid.count-many { grid-template-columns: repeat(3, 1fr); }
 
 /* 比変更ボタン（1/5モード）が押された時の縦一列レイアウト */
 .layout-sidebar #videoGrid {
@@ -144,16 +142,14 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   padding: 10px;
 }
 .layout-sidebar .videoCard {
-  aspect-ratio: 16 / 11;
   width: 100% !important;
-  height: auto !important;
 }
 .layout-sidebar #videoGrid.count-3 .videoCard:nth-child(1) {
   grid-column: auto;
   width: 100%;
 }
 
-/* ビデオカードの共通装飾 */
+/* ★ ビデオカードの共通装飾（アスペクト比を16:10程度にし、映像＋バーが必ず収まるようにする） */
 .videoCard {
   background: var(--bg-card);
   border-radius: 12px;
@@ -161,28 +157,37 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-  position: relative; /* 子要素の基準点にする */
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 11; /* 16:9の映像と下の46pxのバーが綺麗に収まる黄金比 */
 }
+
+/* 映像が入るエリア */
 .video-wrapper { 
   flex: 1; 
-  background: #000; 
+  background: #111214; 
   display: flex; 
   justify-content: center; 
   align-items: center;
-  z-index: 1; /* 映像の重なり順を低めに設定 */
+  overflow: hidden;
 }
-.video-wrapper video { width: 100%; height: 100%; object-fit: cover; }
+.video-wrapper video { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+}
 
-/* ★ ビデオカード下のバー設定（重なり順を最前面に明示） */
+/* ★ 名前とアイコンがあるコントロールバー */
 .videoControlBar { 
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  padding: 0 12px; 
+  padding: 0 14px; 
   background: #232428; 
   height: 46px; 
-  position: relative; /* z-indexを有効にする */
-  z-index: 10;        /* 映像(z-index:1)より必ず手前に出す */
+  min-height: 46px; /* 映像の縮小に潰されないよう高さを絶対死守 */
+  position: relative;
+  z-index: 10;
 }
 .videoName { font-size: 0.88rem; color: #fff; font-weight: 500; }
 .btn-group { display: flex; gap: 8px; }
@@ -208,7 +213,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .status-indicator:not(.on) .slash-line { display: block; }
 .status-indicator:not(.on) .icon-svg { stroke: #686b74; }
 
-/* 右側：設定と同じ高さで横に一列並びするヘッダーエリア */
+/* 右側：ヘッダーエリア */
 .side-panel-header {
   display: flex;
   justify-content: flex-end;
@@ -221,7 +226,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-/* 横並びするコントロールボタン群の共通デザイン */
+/* ボタンの共通デザイン */
 .action-control-btn {
   background: #313338;
   border: none;
@@ -242,7 +247,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .settings-gear { font-size: 1.2rem; background: rgba(0,0,0,0.3); }
 .settings-gear:hover { background: rgba(0,0,0,0.5); }
 
-/* ミュート（OFF）のときの赤斜線スタイル（ヘッダーボタン用） */
+/* ミュート時の赤枠・赤斜線 */
 .action-control-btn:not(.settings-gear):not(.on) { background: rgba(218, 55, 60, 0.15); }
 .action-control-btn:not(.settings-gear):not(.on) .slash-line { display: block; }
 .action-control-btn:not(.settings-gear):not(.on) .icon-svg { stroke: #b5bac1; }
