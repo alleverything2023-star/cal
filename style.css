@@ -57,10 +57,6 @@ body, html {
 select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg-input); color: var(--text-main); font-size: 1rem; }
 #joinButton { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; margin-top: 25px; font-size: 1.1rem; cursor: pointer; }
 
-/* --- 右上の設定ボタン --- */
-.top-controls { position: fixed; top: 15px; right: 15px; z-index: 100; display: flex; gap: 10px; }
-.square-btn { width: 45px; height: 45px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 8px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
 /* --- 設定モーダル --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; justify-content: center; align-items: center; }
 .modal-content { background: var(--bg-card); padding: 25px; border-radius: 12px; width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -70,12 +66,11 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .modal-item button { padding: 8px 12px; cursor: pointer; }
 .close-btn { width: 100%; padding: 10px; margin-top: 10px; background: #666; color: #fff; border: none; border-radius: 6px; cursor: pointer;}
 
-/* =================================================== */
-/* =================================================== */
+/* --- 左右分割レイアウト & 比変更の仕組み --- */
 .app-layout { display: flex; flex-direction: column; width: 100vw; height: 100dvh; }
 .main-content { display: flex; flex: 1; width: 100%; overflow: hidden; min-height: 0; }
 
-/* 1. 通常比率モード：左のカメラゾーンを広く配置 (7:3) */
+/* 1. 通常比率モード：左カメラゾーンが広め (7:3) */
 .layout-default #leftContainer {
   flex: 7;
   background: var(--bg-left);
@@ -89,11 +84,13 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   flex: 3;
   background: var(--bg-card);
   border-left: 1px solid #2b2d31;
-  padding: 25px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
   transition: flex 0.25s ease;
 }
 
-/* 2. ★比変更モード：左のカメラゾーンを「1/5」サイズに縮小 (1:4) */
+/* 2. 比変更モード：左カメラゾーンを「1/5」サイズに縮小 (1:4) */
 .layout-sidebar #leftContainer {
   flex: 1; /* 全体の1/5 */
   background: var(--bg-left);
@@ -106,14 +103,16 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   transition: flex 0.25s ease;
 }
 .layout-sidebar #rightContainer {
-  flex: 4; /* 残りの4/5を大きく使う */
+  flex: 4; /* 全体の4/5 */
   background: var(--bg-card);
   border-left: 1px solid #2b2d31;
-  padding: 25px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
   transition: flex 0.25s ease;
 }
 
-/* 通常時のイラスト通りの可変グリッド（外側マージン付き） */
+/* 通常時の自動グリッド（外側マージン付き） */
 .layout-default #videoGrid {
   display: grid;
   gap: 20px;
@@ -121,7 +120,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   height: 100%;
   max-width: 1200px;
   max-height: 850px;
-  padding: 40px; /* イラストにある「外側の余白」 */
+  padding: 40px;
   justify-content: center;
   align-content: center;
   box-sizing: border-box;
@@ -135,9 +134,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 500px)); grid-template-rows: repeat(2, minmax(120px, 300px)); }
 .layout-default #videoGrid.count-many { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(auto-fit, minmax(150px, 1fr)); }
 
-/* =================================================== */
-/* ★ 比変更ボタン（1/5モード）が押された時の縦一列レイアウト */
-/* =================================================== */
+/* 比変更ボタン（1/5モード）が押された時の縦一列レイアウト */
 .layout-sidebar #videoGrid {
   display: flex;
   flex-direction: column;
@@ -146,13 +143,11 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   height: auto;
   padding: 10px;
 }
-/* 1/5幅の中に綺麗にフィットさせるため、アスペクト比を固定して縦に並べる */
 .layout-sidebar .videoCard {
   aspect-ratio: 16 / 11;
   width: 100% !important;
   height: auto !important;
 }
-/* 1/5幅の時は3人目の上段広がり設定をリセット */
 .layout-sidebar #videoGrid.count-3 .videoCard:nth-child(1) {
   grid-column: auto;
   width: 100%;
@@ -182,7 +177,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .videoName { font-size: 0.88rem; color: #fff; font-weight: 500; }
 .btn-group { display: flex; gap: 8px; }
 
-/* SVGグラフィック共通設定 */
+/* SVGグラフィック設定 */
 .icon-svg {
   width: 18px;
   height: 18px;
@@ -203,52 +198,58 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .status-indicator:not(.on) .slash-line { display: block; }
 .status-indicator:not(.on) .icon-svg { stroke: #686b74; }
 
+
 /* =================================================== */
-/* 右側：旧参加者一覧があった場所に並ぶコントロールパネルデザイン */
+/* ★ 右側：設定と同じ高さで横に一列並びするヘッダーエリア */
 /* =================================================== */
-.side-panel-wrapper {
+.side-panel-header {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.side-panel-wrapper h3 {
-  font-size: 1.1rem;
-  margin-bottom: 25px;
-  color: var(--text-muted);
+  justify-content: flex-end; /* 右寄せに整列 */
+  align-items: center;
+  gap: 10px;                  /* ボタン間の間隔 */
+  width: 100%;
+  height: 45px;               /* ⚙️ボタンの高さとジャスト同期 */
+  margin-bottom: 20px;
+  padding-bottom: 5px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  padding-bottom: 10px;
-}
-.control-tools-box {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  flex: 1;
 }
 
-/* 操作用パネル内のスタイリッシュな横長ボタン */
-.tool-btn {
+/* 横並びするコントロールボタン群の共通デザイン */
+.action-control-btn {
   background: #313338;
   border: none;
   color: #fff;
-  padding: 14px 20px;
+  width: 42px;
+  height: 42px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  transition: background-color 0.15s;
-  width: 100%;
-  max-width: 280px;
+  justify-content: center;
+  transition: background-color 0.12s;
 }
-.tool-btn:hover { background: #3f4147; }
-.tool-btn .icon-svg { width: 20px; height: 20px; }
+.action-control-btn:hover { background: #3f4147; }
+.action-control-btn .icon-svg { width: 20px; height: 20px; }
 
-/* 自分がミュート（OFF）のときのボタンの赤斜線スタイル */
-.tool-btn:not(.on) { background: rgba(218, 55, 60, 0.15); color: #f2f3f5; }
-.tool-btn:not(.on):hover { background: rgba(218, 55, 60, 0.25); }
-.tool-btn:not(.on) .slash-line { display: block; }
-.tool-btn:not(.on) .icon-svg { stroke: #b5bac1; }
+/* 設定用歯車ボタンの個別調整 */
+.settings-gear {
+  font-size: 1.2rem;
+  background: rgba(0,0,0,0.3);
+}
+.settings-gear:hover { background: rgba(0,0,0,0.5); }
 
-.side-footer { margin-top: auto; padding-top: 20px; }
+/* ミュート（OFF）のときの赤斜線スタイル（ヘッダーボタン用） */
+.action-control-btn:not(.settings-gear):not(.on) { 
+  background: rgba(218, 55, 60, 0.15); 
+}
+.action-control-btn:not(.settings-gear):not(.on) .slash-line { 
+  display: block; 
+}
+.action-control-btn:not(.settings-gear):not(.on) .icon-svg { 
+  stroke: #b5bac1; 
+}
+
+/* 操作パネルの下部空間 */
+.side-panel-body {
+  flex: 1;
+}
