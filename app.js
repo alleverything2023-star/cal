@@ -5,7 +5,6 @@ import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 let localStream = null;
 let isJoined = false;
 
-// 要素の取得
 const joinScreen = document.getElementById("joinScreen");
 const roomScreen = document.getElementById("roomScreen");
 const myPreviewVideo = document.getElementById("myPreviewVideo");
@@ -19,17 +18,14 @@ const myLocalVideo = document.getElementById("myLocalVideo");
 const myLocalName = document.getElementById("myLocalName");
 const videoGrid = document.getElementById("videoGrid");
 
-// 右側ヘッダー操作ボタン群
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
 const appLayout = document.getElementById("appLayout");
 
-// 自分のカード内ステータス表示
 const myCamStatus = document.getElementById("myCamStatus");
 const myMicStatus = document.getElementById("myMicStatus");
 
-// 設定モーダル
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
@@ -37,7 +33,6 @@ const themeToggleBtn = document.getElementById("themeToggleBtn");
 const newNameInput = document.getElementById("newNameInput");
 const updateNameBtn = document.getElementById("updateNameBtn");
 
-// 1. 初期化
 async function init() {
   try {
     localStream = await getLocalStream();
@@ -47,7 +42,6 @@ async function init() {
   } catch (e) { alert("カメラ許可が必要です"); }
 }
 
-// 2. デバイス変更時のリアルタイム切り替え処理
 async function handleDeviceChange() {
   if (!localStream) return;
 
@@ -118,19 +112,16 @@ updateNameBtn.addEventListener("click", async () => {
   alert("名前を更新しました");
 });
 
-// 比（レイアウト）の変更ボタンのクリック制御（1/5幅トグル）
 layoutToggleBtn.addEventListener("click", () => {
   appLayout.classList.toggle("layout-default");
   appLayout.classList.toggle("layout-sidebar");
 });
 
-// 人数別グリッドクラスを適用するヘルパー
 function updateGridClass() {
   const cardCount = videoGrid.querySelectorAll(".videoCard").length;
   videoGrid.className = "count-" + (cardCount <= 4 ? cardCount : "many");
 }
 
-// 3. 入室処理
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   if (!name) return alert("名前を入力してください");
@@ -140,7 +131,6 @@ joinButton.addEventListener("click", async () => {
   if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
   if (audioTrack) audioTrack.enabled = initMicToggle.checked;
 
-  // 初期状態をヘッダーボタン・映像内インジケータ双方に反映
   myCamBtn.classList.toggle("on", initCameraToggle.checked);
   myCamStatus.classList.toggle("on", initCameraToggle.checked);
   myMicBtn.classList.toggle("on", initMicToggle.checked);
@@ -178,7 +168,6 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 自分のカメラボタントグル
 myCamBtn.addEventListener("click", () => {
   const t = localStream.getVideoTracks()[0];
   if (t) { 
@@ -188,7 +177,6 @@ myCamBtn.addEventListener("click", () => {
   }
 });
 
-// 自分のマイクボタントグル
 myMicBtn.addEventListener("click", () => {
   const t = localStream.getAudioTracks()[0];
   if (t) { 
@@ -198,7 +186,6 @@ myMicBtn.addEventListener("click", () => {
   }
 });
 
-// 4. 通話相手のビデオカード生成と状態監視
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
   const card = document.createElement("div");
