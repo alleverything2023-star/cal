@@ -4,12 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ブラウザ通話アプリ</title>
-  <link rel="stylesheet" href="style.css"><!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ブラウザ通話アプリ</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark-theme">
@@ -50,10 +44,7 @@
   </div>
 
   <div id="roomScreen" style="display: none;">
-    <div class="top-controls">
-      <button id="settingsBtn" class="square-btn" title="設定">⚙️</button>
-    </div>
-
+    
     <div id="settingsModal" class="modal-overlay" style="display: none;">
       <div class="modal-content">
         <h3>設定</h3>
@@ -105,168 +96,36 @@
         </div>
 
         <div id="rightContainer">
-          <div class="side-panel-wrapper">
-            <h3>操作パネル</h3>
+          <div class="side-panel-header">
+            <button id="myCamBtn" class="action-control-btn on" title="カメラON/OFF">
+              <svg class="icon-svg" viewBox="0 0 24 24">
+                <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
+                <polygon points="17 11 22 8 22 16 17 13"/>
+                <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
+              </svg>
+            </button>
             
-            <div class="control-tools-box">
-              <button id="myCamBtn" class="tool-btn on" title="カメラON/OFF">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                  <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
-                  <polygon points="17 11 22 8 22 16 17 13"/>
-                  <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-                </svg>
-                <span>カメラ切り替え</span>
-              </button>
-              
-              <button id="myMicBtn" class="tool-btn on" title="マイクON/OFF">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                  <rect x="9" y="2" width="6" height="11" rx="3"/>
-                  <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
-                  <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-                </svg>
-                <span>マイク切り替え</span>
-              </button>
+            <button id="myMicBtn" class="action-control-btn on" title="マイクON/OFF">
+              <svg class="icon-svg" viewBox="0 0 24 24">
+                <rect x="9" y="2" width="6" height="11" rx="3"/>
+                <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
+                <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
+              </svg>
+            </button>
 
-              <button id="layoutToggleBtn" class="tool-btn on" title="比（レイアウト）を変更">
-                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
-                  <line x1="12" y1="3" x2="12" y2="21" stroke-width="2"/>
-                </svg>
-                <span>比（レイアウト）変更</span>
-              </button>
-            </div>
+            <button id="layoutToggleBtn" class="action-control-btn on" title="比（レイアウト）を変更">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
+                <line x1="12" y1="3" x2="12" y2="21" stroke-width="2"/>
+              </svg>
+            </button>
 
-            <div class="side-footer">
-              <p style="color: var(--text-muted); font-size: 0.8rem;">※右画面エリア</p>
-            </div>
+            <button id="settingsBtn" class="action-control-btn settings-gear" title="設定">⚙️</button>
           </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="app.js"></script>
-</body>
-</html>
-</head>
-<body class="dark-theme">
-
-  <div id="joinScreen">
-    <div class="setup-container">
-      <h2>通話に参加</h2>
-      
-      <div class="preview-box">
-        <video id="myPreviewVideo" autoplay playsinline muted></video>
-      </div>
-
-      <div class="toggle-controls">
-        <label>
-          <input type="checkbox" id="initCameraToggle" checked> カメラをONにする
-        </label>
-        <label>
-          <input type="checkbox" id="initMicToggle" checked> マイクをONにする
-        </label>
-      </div>
-
-      <div class="device-selects">
-        <div class="select-field">
-          <label for="cameraSelect">カメラ:</label>
-          <select id="cameraSelect"></select>
-        </div>
-        <div class="select-field">
-          <label for="micSelect">マイク:</label>
-          <select id="micSelect"></select>
-        </div>
-      </div>
-
-      <div class="join-form">
-        <input type="text" id="nameInput" placeholder="表示名を入力してください" maxlength="15">
-        <button id="joinButton">入室する</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="roomScreen" style="display: none;">
-    <div class="top-controls">
-      <button id="settingsBtn" class="square-btn" title="設定">⚙️</button>
-    </div>
-
-    <div id="settingsModal" class="modal-overlay" style="display: none;">
-      <div class="modal-content">
-        <h3>設定</h3>
-        <div class="modal-item">
-          <label>テーマ:</label>
-          <button id="themeToggleBtn">ライトモードに切替</button>
-        </div>
-        <div class="modal-item">
-          <label>名前変更:</label>
-          <input type="text" id="newNameInput" placeholder="新しい名前">
-          <button id="updateNameBtn">更新</button>
-        </div>
-        <button id="closeSettingsBtn" class="close-btn">閉じる</button>
-      </div>
-    </div>
-
-    <div class="app-layout" id="appLayout">
-      <div class="main-content">
-        <div id="leftContainer">
-          <div id="videoGrid" class="count-1">
-            
-            <div class="videoCard" id="myVideoCard">
-              <div class="video-wrapper">
-                <video id="myLocalVideo" autoplay playsinline muted></video>
-              </div>
-              <div class="videoControlBar">
-                <span class="videoName" id="myLocalName">あなた</span>
-                <div class="btn-group">
-                  <div id="myCamStatus" class="status-indicator on">
-                    <svg class="icon-svg" viewBox="0 0 24 24">
-                      <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
-                      <polygon points="17 11 22 8 22 16 17 13"/>
-                      <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-                    </svg>
-                  </div>
-                  <div id="myMicStatus" class="status-indicator on">
-                    <svg class="icon-svg" viewBox="0 0 24 24">
-                      <rect x="9" y="2" width="6" height="11" rx="3"/>
-                      <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
-                      <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
-      <div id="bottomContainer">
-        <div class="control-bar-tools">
-          <button id="myCamBtn" class="tool-btn on" title="カメラON/OFF">
-            <svg class="icon-svg" viewBox="0 0 24 24">
-              <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
-              <polygon points="17 11 22 8 22 16 17 13"/>
-              <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-            </svg>
-          </button>
           
-          <button id="myMicBtn" class="tool-btn on" title="マイクON/OFF">
-            <svg class="icon-svg" viewBox="0 0 24 24">
-              <rect x="9" y="2" width="6" height="11" rx="3"/>
-              <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
-              <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-            </svg>
-          </button>
-
-          <button id="layoutToggleBtn" class="tool-btn on" title="比（レイアウト）を変更">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
-              <line x1="12" y1="3" x2="12" y2="21" stroke-width="2"/>
-            </svg>
-          </button>
+          <div class="side-panel-body"></div>
         </div>
+
       </div>
     </div>
   </div>
