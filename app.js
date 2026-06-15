@@ -1,53 +1,104 @@
 import { joinRoom, listenParticipants, myId } from "./room.js";
+import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
-// ※もし devices.js などからインポートしている関数があればここに書く
 
-// 1. 自分のカメラ映像を保存しておくグローバル変数
 let localStream = null;
 
-// 2. 【入室前】ページを開いた瞬間にカメラを起動してプレビューする処理
+const joinScreen = document.getElementById("joinScreen");
+const roomScreen = document.getElementById("roomScreen");
+const myPreviewVideo = document.getElementById("myPreviewVideo");
+const previewFallback = document.getElementById("previewFallback");
+const cameraSelect = document.getElementById("cameraSelect");
+const micSelect = document.getElementById("micSelect");
+const initCameraToggle = document.getElementById("initCameraToggle");
+const initMicToggle = document.getElementById("initMicToggle");
+const nameInput = document.getElementById("nameInput");
+const joinButton = document.getElementById("joinButton");
+const myLocalVideo = document.getElementById("myLocalVideo");
+const myLocalName = document.getElementById("myLocalName");
+const participantList = document.getElementById("participantList");
+const videoGrid = document.getElementById("videoGrid");
+
+// 1. 【起動時初期化】カメラ・マイクを立ち上げ、その後セレクトボックスを埋める
 async function init() {
   try {
-    // カメラとマイクのストリームを取得
-    localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
-    });
+    // 許可をもらいつつ初期ストリーム取得
+    localStream = await getLocalStream();
+    myPreviewVideo.srcObject = localStream;
 
-    // 自分のプレビュー用video要素に映像をセット
-    // ※HTMLにある自分の映像用videoのIDに合わせてください（例: myVideo）
-    const myVideo = document.getElementById("myVideo"); 
-    if (myVideo) {
-      myVideo.srcObject = localStream;
-      myVideo.playsInline = true;
-      myVideo.autoplay = true;
-    }
-
-    // ここでカメラ・マイクの一覧をセレクトボックスに詰める処理（devices.jsの機能など）を呼ぶ
-
+    // 成功したらデバイス一覧の選択肢を生成（これでオプションが空にならなくなります）
+    await updateDeviceList();
   } catch (error) {
-    alert("カメラまたはマイクの起動に失敗しました: " + error.message);
+    console.error("初期デバイス取得エラー:", error);
+    alert("カメラ・マイクの利用を許可してください。");
   }
 }
 
-// ページ読み込み時に初期化処理を実行
-init();
+// 2. カメラやマイクの選択が変更されたときの処理
+async function handleDeviceChange() {
+  if (!localStream) return;
+  // 古いストリームを一度停止
+  localStream.getTracks().forEach(track => track.stop());
 
+  try {
+    localStream = await getLocalStream(cameraSelect.value, micSelect.value);
+    myPreviewVideo.srcObject = localStream;
+    
+    // 入室前ON/OFFチェックボックスの状態を即座に反映
+    toggleTracksByCheckbox();
+  } catch (e) {
+    console.error("デバイス切り替え失敗:", e);
+  }
+}
 
-// 3. 【入室時】入室ボタンを押したときの処理
-joinButton.addEventListener("click", async () => {
-  const name = nameInput.value;
-  if (!name) return alert("名前を入力してください");
+cameraSelect.addEventListener("change", handleDeviceChange);
+micSelect.addEventListener("change", handleDeviceChange);
 
-  await joinRoom(name); // Firebaseに参加者登録
+// 3. 入室前チェックボックスのON/OFFで映像・音声を制御する関数
+function toggleTracksByCheckbox() {
+  if (!localStream) return;
   
-  // 画面の切り替え
-  document.getElementById("joinScreen").style.display = "none";
-  document.getElementById("roomScreen").style.display = "block";
+  const videoTrack = localStream.getVideoTracks()[0];
+  const audioTrack = localStream.getAudioTracks()[0];
 
-  // 【前回追加したWebRTCの同期処理】
+  if (videoTrack) {
+    videoTrack.enabled = initCameraToggle.checked;
+    myPreviewVideo.style.display = initCameraToggle.checked ? "block" : "none";
+    previewFallback.style.display = initCameraToggle.checked ? "none" : "block";
+  }
+  if (audioTrack) {
+    audioTrack.enabled = initMicToggle.checked;
+  }
+}
+
+initCameraToggle.addEventListener("change", toggleTracksByCheckbox);
+initMicToggle.addEventListener("change", toggleTracksByCheckbox);
+
+// 4. 【入室ボタンクリック時】
+joinButton.addEventListener("click", async () => {
+  const name = nameInput.value.trim();
+  if (!name) return alert("名前を入力してください。");
+
+  // 入室直前のON/OFF状態を最終適用
+  toggleTracksByCheckbox();
+
+  // Firebaseへ参加登録
+  await joinRoom(name);
+
+  // 画面の切り替え
+  joinScreen.style.display = "none";
+  roomScreen.style.display = "block";
+
+  // 通話中画面の自分枠にストリームと名前をセット
+  myLocalVideo.srcObject = localStream;
+  myLocalName.textContent = `${name} (あなた)`;
+
+  // Firebaseの参加者監視（メッシュ接続開始）
   listenParticipants((participants) => {
-    // 退室した人を検知して切断
+    // リストの更新
+    participantList.innerHTML = "";
+    
+    // 退室した人を検知してP2P切断 ＆ カード削除
     for (const peerId in peerConnections) {
       if (!participants[peerId]) {
         closeP2P(peerId);
@@ -55,13 +106,19 @@ joinButton.addEventListener("click", async () => {
       }
     }
 
-    // 新しく入室した人と接続（ここで上の localStream を渡す）
+    // 参加者一覧の処理
     for (const peerId in participants) {
+      const peerName = participants[peerId].name;
+      
+      // サイドバーのテキストリスト更新
+      const li = document.createElement("li");
+      li.textContent = peerName + (peerId === myId ? " (あなた)" : "");
+      participantList.appendChild(li);
+
+      // 自分以外の新規参加者に対してP2P接続を開始
       if (peerId !== myId && !peerConnections[peerId]) {
-        const peerName = participants[peerId].name;
-        
-        // localStream が空っぽじゃないことを確認して渡す
         startP2P(peerId, localStream, (id, remoteStream) => {
+          // 相手の映像が届いたらタイルを追加
           addVideoCard(id, peerName, remoteStream);
         });
       }
@@ -69,4 +126,32 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// ─── 以下、addVideoCard や removeVideoCard の関数 ───
+// 5. 【便利関数】ビデオカードの動的生成と削除
+function addVideoCard(id, name, stream) {
+  if (document.getElementById(`card-${id}`)) return;
+
+  const card = document.createElement("div");
+  card.className = "videoCard";
+  card.id = `card-${id}`;
+
+  const video = document.createElement("video");
+  video.autoplay = true;
+  video.playsInline = true; // iPad対策
+  video.srcObject = stream;
+
+  const nameDiv = document.createElement("div");
+  nameDiv.className = "videoName";
+  nameDiv.textContent = name;
+
+  card.appendChild(video);
+  card.appendChild(nameDiv);
+  videoGrid.appendChild(card);
+}
+
+function removeVideoCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  if (card) card.remove();
+}
+
+// 起動
+init();
