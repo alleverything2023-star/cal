@@ -22,7 +22,7 @@ const videoGrid = document.getElementById("videoGrid");
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 
-// 1. 【起動時初期化】カメラ・マイクを立ち上げ、その後セレクトボックスを埋める
+// 1. 【起動時初期化】
 async function init() {
   try {
     localStream = await getLocalStream();
@@ -37,7 +37,7 @@ async function init() {
   }
 }
 
-// 2. カメラやマイクの選択が変更されたときの処理
+// 2. デバイス変更処理
 async function handleDeviceChange() {
   if (!localStream) return;
   localStream.getTracks().forEach(track => track.stop());
@@ -74,13 +74,14 @@ function toggleTracksByCheckbox() {
 initCameraToggle.addEventListener("change", toggleTracksByCheckbox);
 initMicToggle.addEventListener("change", toggleTracksByCheckbox);
 
-// 4. 通話中のカメラ・マイクボタンの個別ON/OFF制御（自分用）
+// 4. 通話中のカメラ・マイクボタン制御（自分用・色の反転ロジック）
 myCamBtn.addEventListener("click", () => {
   if (!localStream) return;
   const videoTrack = localStream.getVideoTracks()[0];
   if (videoTrack) {
     videoTrack.enabled = !videoTrack.enabled;
-    myCamBtn.classList.toggle("off", !videoTrack.enabled);
+    // 有効（ON）のときに「on」クラスをつける（緑化）
+    myCamBtn.classList.toggle("on", videoTrack.enabled);
   }
 });
 
@@ -89,7 +90,7 @@ myMicBtn.addEventListener("click", () => {
   const audioTrack = localStream.getAudioTracks()[0];
   if (audioTrack) {
     audioTrack.enabled = !audioTrack.enabled;
-    myMicBtn.classList.toggle("off", !audioTrack.enabled);
+    myMicBtn.classList.toggle("on", audioTrack.enabled);
   }
 });
 
@@ -100,8 +101,9 @@ joinButton.addEventListener("click", async () => {
 
   toggleTracksByCheckbox();
 
-  myCamBtn.classList.toggle("off", !initCameraToggle.checked);
-  myMicBtn.classList.toggle("off", !initMicToggle.checked);
+  // 入室前の設定に合わせて、ボタンの「on」クラスの初期状態を決定
+  myCamBtn.classList.toggle("on", initCameraToggle.checked);
+  myMicBtn.classList.toggle("on", initMicToggle.checked);
 
   await joinRoom(name);
 
@@ -137,7 +139,7 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 6. ビデオカードの動的生成（他人のカードにもON/OFFボタンの見た目を配置）
+// 6. ビデオカードの動的生成（他人のカードにはボタンを作らず名前だけに修正）
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
 
@@ -145,7 +147,6 @@ function addVideoCard(id, name, stream) {
   card.className = "videoCard";
   card.id = `card-${id}`;
 
-  // 比率維持用のラッパー
   const wrapper = document.createElement("div");
   wrapper.className = "video-wrapper";
 
@@ -155,7 +156,6 @@ function addVideoCard(id, name, stream) {
   video.srcObject = stream;
   wrapper.appendChild(video);
 
-  // 下部バーの組み立て
   const controlBar = document.createElement("div");
   controlBar.className = "videoControlBar";
 
@@ -163,23 +163,8 @@ function addVideoCard(id, name, stream) {
   nameDiv.className = "videoName";
   nameDiv.textContent = name;
 
-  // 相手のカメラ・マイク状態ボタン（UIの統一、将来的にインジケータ等に拡張可能）
-  const btnGroup = document.createElement("div");
-  btnGroup.className = "btn-group";
-  
-  const camBtn = document.createElement("button");
-  camBtn.className = "action-btn";
-  camBtn.textContent = "📷";
-  
-  const micBtn = document.createElement("button");
-  micBtn.className = "action-btn";
-  micBtn.textContent = "🎤";
-  
-  btnGroup.appendChild(camBtn);
-  btnGroup.appendChild(micBtn);
-
+  // 他人のカードにはボタンを追加しない（nameDivのみ入れる）
   controlBar.appendChild(nameDiv);
-  controlBar.appendChild(btnGroup);
   
   card.appendChild(wrapper);
   card.appendChild(controlBar);
