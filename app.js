@@ -19,17 +19,18 @@ const myLocalName = document.getElementById("myLocalName");
 const participantList = document.getElementById("participantList");
 const videoGrid = document.getElementById("videoGrid");
 
+// 今回追加した自分用コントロールボタン
+const myCamBtn = document.getElementById("myCamBtn");
+const myMicBtn = document.getElementById("myMicBtn");
+
 // 1. 【起動時初期化】カメラ・マイクを立ち上げ、その後セレクトボックスを埋める
 async function init() {
   try {
-    // 許可をもらいつつ初期ストリーム取得
     localStream = await getLocalStream();
     myPreviewVideo.srcObject = localStream;
 
-    // ★iPad対策：カメラが完全に起動するまでわずかに（0.2秒）待つ
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // デバイス一覧の選択肢を生成
+    // iPad対策：認識完了まで少し待つ
+    await new Promise(resolve => setTimeout(resolve, 200));
     await updateDeviceList();
   } catch (error) {
     console.error("初期デバイス取得エラー:", error);
@@ -40,14 +41,11 @@ async function init() {
 // 2. カメラやマイクの選択が変更されたときの処理
 async function handleDeviceChange() {
   if (!localStream) return;
-  // 古いストリームを一度停止
   localStream.getTracks().forEach(track => track.stop());
 
   try {
     localStream = await getLocalStream(cameraSelect.value, micSelect.value);
     myPreviewVideo.srcObject = localStream;
-    
-    // 入室前ON/OFFチェックボックスの状態を即座に反映
     toggleTracksByCheckbox();
   } catch (e) {
     console.error("デバイス切り替え失敗:", e);
@@ -57,7 +55,7 @@ async function handleDeviceChange() {
 cameraSelect.addEventListener("change", handleDeviceChange);
 micSelect.addEventListener("change", handleDeviceChange);
 
-// 3. 入室前チェックボックスのON/OFFで映像・音声を制御する関数
+// 3. 入室前チェックボックスのON/OFF制御
 function toggleTracksByCheckbox() {
   if (!localStream) return;
   
@@ -77,31 +75,52 @@ function toggleTracksByCheckbox() {
 initCameraToggle.addEventListener("change", toggleTracksByCheckbox);
 initMicToggle.addEventListener("change", toggleTracksByCheckbox);
 
+
+// ─── 新機能：通話中のカメラ・マイクボタンの個別ON/OFF制御 ───
+myCamBtn.addEventListener("click", () => {
+  if (!localStream) return;
+  const videoTrack = localStream.getVideoTracks()[0];
+  if (videoTrack) {
+    // 状態を反転
+    videoTrack.enabled = !videoTrack.enabled;
+    // ボタンの見た目を切り替え
+    myCamBtn.classList.toggle("off", !videoTrack.enabled);
+  }
+});
+
+myMicBtn.addEventListener("click", () => {
+  if (!localStream) return;
+  const audioTrack = localStream.getAudioTracks()[0];
+  if (audioTrack) {
+    audioTrack.enabled = !audioTrack.enabled;
+    myMicBtn.classList.toggle("off", !audioTrack.enabled);
+  }
+});
+// ───────────────────────────────────────────────────────────
+
+
 // 4. 【入室ボタンクリック時】
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   if (!name) return alert("名前を入力してください。");
 
-  // 入室直前のON/OFF状態を最終適用
   toggleTracksByCheckbox();
 
-  // Firebaseへ参加登録
+  // 通話中画面のボタン状態を入室前のチェックボックスと同期させる
+  myCamBtn.classList.toggle("off", !initCameraToggle.checked);
+  myMicBtn.classList.toggle("off", !initMicToggle.checked);
+
   await joinRoom(name);
 
-  // 画面の切り替え
   joinScreen.style.display = "none";
-  roomScreen.style.display = "block";
+  roomScreen.style.display = "flex"; // ※左右分割を正しく効かせるためflexに変更
 
-  // 通話中画面の自分枠にストリームと名前をセット
   myLocalVideo.srcObject = localStream;
   myLocalName.textContent = `${name} (あなた)`;
 
-  // Firebaseの参加者監視（メッシュ接続開始）
   listenParticipants((participants) => {
-    // リストの更新
     participantList.innerHTML = "";
     
-    // 退室した人を検知してP2P切断 ＆ カード削除
     for (const peerId in peerConnections) {
       if (!participants[peerId]) {
         closeP2P(peerId);
@@ -109,19 +128,15 @@ joinButton.addEventListener("click", async () => {
       }
     }
 
-    // 参加者一覧の処理
     for (const peerId in participants) {
       const peerName = participants[peerId].name;
       
-      // サイドバーのテキストリスト更新
       const li = document.createElement("li");
       li.textContent = peerName + (peerId === myId ? " (あなた)" : "");
       participantList.appendChild(li);
 
-      // 自分以外の新規参加者に対してP2P接続を開始
       if (peerId !== myId && !peerConnections[peerId]) {
         startP2P(peerId, localStream, (id, remoteStream) => {
-          // 相手の映像が届いたらタイルを追加
           addVideoCard(id, peerName, remoteStream);
         });
       }
@@ -129,7 +144,7 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 5. 【便利関数】ビデオカードの動的生成と削除
+// 5. ビデオカードの動的生成（名前の横にボタン枠も配置※相手のボタンは表示のみ）
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
 
@@ -139,15 +154,26 @@ function addVideoCard(id, name, stream) {
 
   const video = document.createElement("video");
   video.autoplay = true;
-  video.playsInline = true; // iPad対策
+  video.playsInline = true;
   video.srcObject = stream;
+
+  // 下部バーの組み立て
+  const controlBar = document.createElement("div");
+  controlBar.className = "videoControlBar";
 
   const nameDiv = document.createElement("div");
   nameDiv.className = "videoName";
   nameDiv.textContent = name;
 
+  // 相手のカードの右側スペース（現状はステータス表示用、将来リモートミュートなど拡張可能）
+  const btnGroup = document.createElement("div");
+  btnGroup.className = "btn-group";
+
+  controlBar.appendChild(nameDiv);
+  controlBar.appendChild(btnGroup);
+  
   card.appendChild(video);
-  card.appendChild(nameDiv);
+  card.appendChild(controlBar);
   videoGrid.appendChild(card);
 }
 
@@ -156,5 +182,4 @@ function removeVideoCard(id) {
   if (card) card.remove();
 }
 
-// 起動
 init();
