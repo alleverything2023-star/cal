@@ -117,6 +117,56 @@ return;
 
 await joinRoom(name);
 
+  const stream =
+await navigator.mediaDevices.getUserMedia({
+
+video:{
+deviceId:
+cameraSelect.value
+? {exact:cameraSelect.value}
+: undefined
+},
+
+audio:{
+deviceId:
+micSelect.value
+? {exact:micSelect.value}
+: undefined
+}
+
+});
+
+const card =
+document.createElement("div");
+
+card.className =
+"videoCard";
+
+const video =
+document.createElement("video");
+
+video.autoplay = true;
+video.muted = true;
+video.playsInline = true;
+
+video.srcObject = stream;
+
+const nameDiv =
+document.createElement("div");
+
+nameDiv.className =
+"videoName";
+
+nameDiv.textContent =
+name;
+
+card.appendChild(video);
+card.appendChild(nameDiv);
+
+document
+.getElementById("videoGrid")
+.appendChild(card);
+  
 document
 .getElementById(
 "myName"
