@@ -346,5 +346,17 @@ if (chatInput) {
     }
   });
 }
+// --- webrtc.js から直接呼び出せるようにグローバルに登録 ---
+window.getGlobalLocalStream = function() {
+  return localStream;
+};
 
-init();
+window.handleRemoteStreamGlobal = function(peerId, remoteStream) {
+  // 参加者リスト（room.js）から相手の名前を探す、無ければ「ゲスト」
+  const participant = roomParticipants[peerId];
+  const name = participant ? participant.name : "参加者";
+  addVideoCard(peerId, name, remoteStream);
+};
+// --------------------------------------------------------
+
+init(); // もともとある最下部の init()
