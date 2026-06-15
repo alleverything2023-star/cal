@@ -19,7 +19,7 @@ const myLocalVideo = document.getElementById("myLocalVideo");
 const myLocalName = document.getElementById("myLocalName");
 const videoGrid = document.getElementById("videoGrid");
 
-// 右側操作パネル内コントロールボタン
+// 右側ヘッダー操作ボタン群
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
@@ -118,7 +118,7 @@ updateNameBtn.addEventListener("click", async () => {
   alert("名前を更新しました");
 });
 
-// ★ 比（レイアウト）の変更ボタンのクリック制御（1/5幅トグル）
+// 比（レイアウト）の変更ボタンのクリック制御（1/5幅トグル）
 layoutToggleBtn.addEventListener("click", () => {
   appLayout.classList.toggle("layout-default");
   appLayout.classList.toggle("layout-sidebar");
@@ -140,7 +140,7 @@ joinButton.addEventListener("click", async () => {
   if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
   if (audioTrack) audioTrack.enabled = initMicToggle.checked;
 
-  // 初期状態を右操作パネルボタン・映像内インジケータ双方に反映
+  // 初期状態をヘッダーボタン・映像内インジケータ双方に反映
   myCamBtn.classList.toggle("on", initCameraToggle.checked);
   myCamStatus.classList.toggle("on", initCameraToggle.checked);
   myMicBtn.classList.toggle("on", initMicToggle.checked);
@@ -178,7 +178,7 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 自分のカメラボタントグル（右操作パネルボタン・カード内斜線と連動）
+// 自分のカメラボタントグル（ヘッダーボタン・カード内斜線と連動）
 myCamBtn.addEventListener("click", () => {
   const t = localStream.getVideoTracks()[0];
   if (t) { 
@@ -188,7 +188,7 @@ myCamBtn.addEventListener("click", () => {
   }
 });
 
-// 自分のマイクボタントグル（右操作パネルボタン・カード内斜線と連動）
+// 自分のマイクボタントグル（ヘッダーボタン・カード内斜線と連動）
 myMicBtn.addEventListener("click", () => {
   const t = localStream.getAudioTracks()[0];
   if (t) { 
@@ -198,7 +198,7 @@ myMicBtn.addEventListener("click", () => {
   }
 });
 
-// 4. 通話相手のビデオカード生成と状態監視（表示のみ）
+// 4. 通話相手のビデオカード生成と状態監視
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
   const card = document.createElement("div");
