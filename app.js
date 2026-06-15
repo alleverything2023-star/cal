@@ -125,9 +125,12 @@ joinButton.addEventListener("click", async () => {
   myLocalVideo.srcObject = localStream;
   myLocalName.textContent = `${name} (あなた)`;
 
+  // 参加者データのリアルタイム監視
   listenParticipants((participants) => {
+    // 画面のテキスト一覧をいったんリセット
     participantList.innerHTML = "";
     
+    // ★【重要】データベース（participants）から消えた古い人がいたら、WebRTCの接続を閉じ、ビデオカードも即座に削除する
     for (const peerId in peerConnections) {
       if (!participants[peerId]) {
         closeP2P(peerId);
@@ -135,6 +138,7 @@ joinButton.addEventListener("click", async () => {
       }
     }
 
+    // 現在データベースに存在する人のみ一覧に再描画する
     for (const peerId in participants) {
       const peerName = participants[peerId].name;
       
@@ -142,6 +146,7 @@ joinButton.addEventListener("click", async () => {
       li.textContent = peerName + (peerId === myId ? " (あなた)" : "");
       participantList.appendChild(li);
 
+      // 新しい人が入ってきた場合のみP2P接続を開始
       if (peerId !== myId && !peerConnections[peerId]) {
         startP2P(peerId, localStream, (id, remoteStream) => {
           addVideoCard(id, peerName, remoteStream);
@@ -182,6 +187,7 @@ function addVideoCard(id, name, stream) {
   videoGrid.appendChild(card);
 }
 
+// ビデオカードの削除
 function removeVideoCard(id) {
   const card = document.getElementById(`card-${id}`);
   if (card) card.remove();
