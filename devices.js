@@ -2,11 +2,10 @@
 export async function getLocalStream(cameraId = null, micId = null) {
   const constraints = {
     audio: micId ? { deviceId: { exact: micId } } : true,
-    video: true // デフォルト
+    video: true
   };
 
   if (cameraId) {
-    // 選択されたカメラのラベル（名前）に「back」「背面」「environment」「外」が含まれているか判定
     const videoDevices = await navigator.mediaDevices.enumerateDevices();
     const selectedDevice = videoDevices.find(device => device.deviceId === cameraId);
     
@@ -18,20 +17,17 @@ export async function getLocalStream(cameraId = null, micId = null) {
     );
 
     if (isBackCamera) {
-      // 背面カメラの場合は facingMode を指定（iPad/iPhoneで極めて重要）
       constraints.video = {
         deviceId: { exact: cameraId },
         facingMode: "environment"
       };
     } else {
-      // 前面カメラなどの場合
       constraints.video = {
         deviceId: { exact: cameraId },
         facingMode: "user"
       };
     }
   } else {
-    // 初回起動時などは前面カメラをデフォルトにする
     constraints.video = { facingMode: "user" };
   }
 
@@ -45,7 +41,6 @@ export async function updateDeviceList() {
 
   if (!cameraSelect || !micSelect) return;
 
-  // 既存の選択肢をクリア
   cameraSelect.innerHTML = "";
   micSelect.innerHTML = "";
 
