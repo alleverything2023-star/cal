@@ -48,6 +48,38 @@ function setVideoSrc(videoElement, stream) {
 }
 
 async function init() {
+  // 【UI調整】入室画面が端末からはみ出さないように、高さを自動調整するスタイルを注入
+  if (joinScreen) {
+    joinScreen.style.display = "flex";
+    joinScreen.style.flexDirection = "column";
+    joinScreen.style.justifyContent = "center";
+    joinScreen.style.alignItems = "center";
+    joinScreen.style.minHeight = "100vh";
+    joinScreen.style.padding = "10px";
+    joinScreen.style.boxSizing = "border-box";
+    joinScreen.style.overflowY = "auto"; // 万が一のスクロール対応
+
+    // 入室画面の中にある白い（または暗い）コンテナボックスを取得してフィットさせる
+    const joinContainer = joinScreen.querySelector(".join-container") || joinScreen.children[0];
+    if (joinContainer) {
+      joinContainer.style.maxHeight = "95vh";
+      joinContainer.style.maxWidth = "100%";
+      joinContainer.style.width = "400px";
+      joinContainer.style.overflowY = "auto";
+      joinContainer.style.boxSizing = "border-box";
+      joinContainer.style.padding = "20px";
+      joinContainer.style.margin = "auto";
+    }
+
+    // プレビュービデオのサイズが大きすぎてはみ出るのを防ぐ
+    if (myPreviewVideo) {
+      myPreviewVideo.style.maxWidth = "100%";
+      myPreviewVideo.style.maxHeight = "200px"; 
+      myPreviewVideo.style.borderRadius = "8px";
+      myPreviewVideo.style.objectFit = "cover";
+    }
+  }
+
   try {
     localStream = await getLocalStream();
     if (myPreviewVideo) {
@@ -197,7 +229,7 @@ if (joinButton) {
       updateGridClass();
     });
 
-    // 【新規】Firebaseからのリアルタイムチャット受信を開始
+    // Firebaseからのリアルタイムチャット受信を開始
     listenChatMessages((sender, text) => {
       const isMe = (sender === currentUserName);
       appendMessage(sender, text, isMe);
@@ -303,7 +335,7 @@ function sendChatMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
 
-  // 【修正】Firebase経由で全員に向けてメッセージを送信
+  // Firebase経由で全員に向けてメッセージを送信
   sendChatMessageToFirebase(currentUserName, text);
 
   chatInput.value = "";
@@ -312,27 +344,52 @@ function sendChatMessage() {
 
 function appendMessage(sender, text, isMe = false) {
   if (!chatMessages) return;
+  
   const messageWrapper = document.createElement("div");
   messageWrapper.style.display = "flex";
   messageWrapper.style.flexDirection = "column";
+  messageWrapper.style.margin = "8px 0";
+  messageWrapper.style.width = "100%";
   if (isMe) messageWrapper.style.alignItems = "flex-end";
 
   const nameLabel = document.createElement("span");
   nameLabel.className = "chat-user-name";
   nameLabel.textContent = isMe ? "あなた" : sender;
+  nameLabel.style.fontSize = "12px";
+  nameLabel.style.color = "#aaa";
+  nameLabel.style.marginBottom = "2px";
   messageWrapper.appendChild(nameLabel);
 
   const bubble = document.createElement("div");
   bubble.className = `chat-bubble ${isMe ? "my-msg" : ""}`;
   bubble.textContent = text;
-  messageWrapper.appendChild(bubble);
+  
+  // 【超重要：メッセージ不可視対策】文字が絶対に隠れないようにスタイルを強制上書き
+  bubble.style.padding = "10px 14px";
+  bubble.style.borderRadius = "14px";
+  bubble.style.maxWidth = "75%";
+  bubble.style.wordBreak = "break-all";
+  bubble.style.fontSize = "14px";
+  bubble.style.display = "inline-block";
 
+  if (isMe) {
+    bubble.style.backgroundColor = "#007bff"; // 自分のメッセージは青
+    bubble.style.color = "#ffffff";
+  } else {
+    bubble.style.backgroundColor = "#e9ecef"; // 相手のメッセージは薄いグレー
+    bubble.style.color = "#333333";
+  }
+  
+  messageWrapper.appendChild(bubble);
   chatMessages.appendChild(messageWrapper);
+  
   scrollToBottom();
 }
 
 function scrollToBottom() {
-  if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
+  if (chatMessages) {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
 }
 
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
