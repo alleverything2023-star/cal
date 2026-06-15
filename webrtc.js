@@ -9,7 +9,7 @@ listenSignalingMessage((fromPeerId, signalingData) => {
   handleSignalingMessage(fromPeerId, signalingData);
 });
 
-// チャット機能無効化に伴う空の関数（app.jsのエラー防止用）
+// チャット通信の関数（app.js側でエラーが起きないように空関数として定義）
 export function registerOnMessage(callback) {}
 export function broadcastMessage(messageData) {}
 
