@@ -3,6 +3,7 @@ import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 let localStream = null;
+let isJoined = false; // ★入室済みかどうかを判定するフラグを追加
 
 // 要素の取得
 const joinScreen = document.getElementById("joinScreen");
@@ -41,11 +42,66 @@ async function init() {
   } catch (e) { alert("カメラ許可が必要です"); }
 }
 
-// 2. 設定モーダルの制御
+// 2. ★【大幅修正】デバイス（カメラ・マイク）変更時のリアルタイム切り替え処理
+async function handleDeviceChange() {
+  if (!localStream) return;
+
+  // 古いストリームのトラックをすべて停止させて解放する
+  localStream.getTracks().forEach(track => track.stop());
+
+  try {
+    // 選択された新しいデバイスでストリームを再取得
+    localStream = await getLocalStream(cameraSelect.value, micSelect.value);
+
+    if (!isJoined) {
+      // 【入室前】の場合：プレビュー画面の映像を更新
+      myPreviewVideo.srcObject = localStream;
+      
+      // チェックボックスの状態を反映
+      const videoTrack = localStream.getVideoTracks()[0];
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
+      if (audioTrack) audioTrack.enabled = initMicToggle.checked;
+    } else {
+      // 【入室後】の場合：自分の通話画面の映像を更新
+      myLocalVideo.srcObject = localStream;
+
+      const newVideoTrack = localStream.getVideoTracks()[0];
+      const newAudioTrack = localStream.getAudioTracks()[0];
+
+      // 現在のボタンのON/OFF状態（クラスに 'on' があるか）を新しいトラックに引き継ぐ
+      if (newVideoTrack) newVideoTrack.enabled = myCamBtn.classList.contains("on");
+      if (newAudioTrack) newAudioTrack.enabled = myMicBtn.classList.contains("on");
+
+      // 接続中のすべての相手（Peer）に対して、新しくなったカメラ・マイクの映像を送り直す（RTCRtpSenderの差し替え）
+      for (const id in peerConnections) {
+        const pc = peerConnections[id];
+        const senders = pc.getSenders();
+
+        senders.forEach(sender => {
+          if (sender.track && sender.track.kind === "video" && newVideoTrack) {
+            sender.replaceTrack(newVideoTrack);
+          }
+          if (sender.track && sender.track.kind === "audio" && newAudioTrack) {
+            sender.replaceTrack(newAudioTrack);
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.error("デバイスの切り替えに失敗しました:", e);
+  }
+}
+
+// セレクトボックスが変更されたら即座に上記の切り替えを実行
+cameraSelect.addEventListener("change", handleDeviceChange);
+micSelect.addEventListener("change", handleDeviceChange);
+
+// 3. 設定モーダルの制御
 settingsBtn.addEventListener("click", () => settingsModal.style.display = "flex");
 closeSettingsBtn.addEventListener("click", () => settingsModal.style.display = "none");
 
-// 3. テーマ切り替え
+// 4. テーマ切り替え
 themeToggleBtn.addEventListener("click", () => {
   const isDark = document.body.classList.contains("dark-theme");
   if (isDark) {
@@ -57,7 +113,7 @@ themeToggleBtn.addEventListener("click", () => {
   }
 });
 
-// 4. 名前変更処理
+// 5. 名前変更処理
 updateNameBtn.addEventListener("click", async () => {
   const newName = newNameInput.value.trim();
   if (!newName) return;
@@ -67,13 +123,13 @@ updateNameBtn.addEventListener("click", async () => {
   alert("名前を更新しました");
 });
 
-// 5. レイアウト切り替え
+// 6. レイアウト切り替え
 layoutToggleBtn.addEventListener("click", () => {
   appLayout.classList.toggle("layout-default");
   appLayout.classList.toggle("layout-sidebar");
 });
 
-// 6. 入室処理
+// 7. 入室処理
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   if (!name) return alert("名前を入力してください");
@@ -88,6 +144,9 @@ joinButton.addEventListener("click", async () => {
   myMicBtn.classList.toggle("on", initMicToggle.checked);
 
   await joinRoom(name);
+  
+  isJoined = true; // ★入室フラグをtrueにする
+  
   joinScreen.style.display = "none";
   roomScreen.style.display = "flex";
   myLocalVideo.srcObject = localStream;
