@@ -22,7 +22,6 @@ const videoGrid = document.getElementById("videoGrid");
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 
-// 今回新しく追加したレイアウト切り替え要素
 const appLayout = document.getElementById("appLayout");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
 
@@ -97,23 +96,18 @@ myMicBtn.addEventListener("click", () => {
   }
 });
 
-
-// ─── 新機能：レイアウトの2パターン切り替え処理 ───
+// 5. レイアウトの2パターン切り替え処理
 layoutToggleBtn.addEventListener("click", () => {
   if (appLayout.classList.contains("layout-default")) {
-    // サイドバーモード（カメラ1/5、右4/5）に切り替え
     appLayout.classList.remove("layout-default");
     appLayout.classList.add("layout-sidebar");
   } else {
-    // 通常モード（左7、右3）に切り替え
     appLayout.classList.remove("layout-sidebar");
     appLayout.classList.add("layout-default");
   }
 });
-// ────────────────────────────────────────────────
 
-
-// 5. 【入室ボタンクリック時】
+// 6. 【入室ボタンクリック時】
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   if (!name) return alert("名前を入力してください。");
@@ -121,7 +115,7 @@ joinButton.addEventListener("click", async () => {
   toggleTracksByCheckbox();
 
   myCamBtn.classList.toggle("on", initCameraToggle.checked);
-  myMicBtn.classList.toggle("off", !initMicToggle.checked);
+  myMicBtn.classList.toggle("on", initMicToggle.checked);
 
   await joinRoom(name);
 
@@ -157,7 +151,7 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 6. ビデオカードの動的生成
+// 7. ビデオカードの動的生成
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
 
