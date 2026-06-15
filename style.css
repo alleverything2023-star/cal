@@ -105,11 +105,20 @@ select, input[type="text"] {
   background: #4752c4;
 }
 
-/* --- ルーム画面（左右分割メイン） --- */
-.app-container {
+/* --- ルーム画面（上下・左右の全体レイアウト） --- */
+.app-layout {
   display: flex;
+  flex-direction: column;
   width: 100vw;
   height: 100vh;
+}
+
+/* メイン部分（左右に分割） */
+.main-content {
+  display: flex;
+  flex: 1; /* 残りの高さをすべて使う */
+  width: 100%;
+  overflow: hidden;
 }
 
 /* 左画面：ビデオエリア */
@@ -151,7 +160,18 @@ select, input[type="text"] {
   background: #313338;
 }
 
-/* --- ビデオグリッド：カメラの比率を一定にしてきれいに分割 --- */
+/* 下画面：後で機能を追加できる細めの余白 */
+#bottomContainer {
+  height: 50px; /* 細めの高さに固定 */
+  background-color: #1e1f22;
+  border-top: 1px solid #2b2d31;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 20px;
+}
+
+/* --- ビデオグリッド：カメラ比率を維持して等分割 --- */
 #videoGrid {
   display: flex;
   flex-wrap: wrap;
@@ -160,7 +180,7 @@ select, input[type="text"] {
   gap: 15px;
   width: 100%;
   height: 100%;
-  max-width: 1200px; /* 広がりすぎ防止 */
+  max-width: 1200px;
 }
 
 .videoCard {
@@ -171,35 +191,27 @@ select, input[type="text"] {
   flex-direction: column;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   transition: all 0.3s ease;
-  
-  /* デフォルト（1人）のサイズ */
   width: 100%;
-  height: calc(100% - 50px);
+  height: calc(100% - 10px);
   max-width: 800px;
 }
 
 /* 人数ごとのサイズ調整（等分割ロジック） */
-/* 2人：左右に2分割 */
 #videoGrid:has(.videoCard:nth-child(2):last-child) .videoCard {
   width: calc(50% - 10px);
   height: 60%;
 }
-
-/* 3人〜4人：2×2の4分割 */
 #videoGrid:has(.videoCard:nth-child(3):last-child) .videoCard,
 #videoGrid:has(.videoCard:nth-child(4):last-child) .videoCard {
   width: calc(50% - 10px);
   height: calc(50% - 10px);
 }
-
-/* 5人〜：3分割ベース */
 #videoGrid:has(.videoCard:nth-child(5):not(:last-child)) .videoCard,
 #videoGrid:has(.videoCard:nth-child(5):last-child) .videoCard {
   width: calc(33.33% - 10px);
   height: calc(50% - 10px);
 }
 
-/* ビデオの比率（16:9等）を維持するコンテナ */
 .video-wrapper {
   flex: 1;
   width: 100%;
@@ -213,7 +225,7 @@ select, input[type="text"] {
 .video-wrapper video {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* ★重要：カメラの元の比率を完全に維持して余白を作る */
+  object-fit: contain;
 }
 
 /* ビデオの下部操作バー */
@@ -232,7 +244,6 @@ select, input[type="text"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 60%;
 }
 
 .btn-group {
@@ -240,8 +251,9 @@ select, input[type="text"] {
   gap: 6px;
 }
 
+/* ★ボタンの配色変更：基本が赤（OFF）、ONクラスがつくと青（稼働中） */
 .action-btn {
-  background: #4e5058;
+  background: #da373c; /* デフォルトは赤色 */
   border: none;
   color: white;
   padding: 6px 12px;
@@ -253,8 +265,8 @@ select, input[type="text"] {
   justify-content: center;
 }
 
-.action-btn.off {
-  background: #da373c; /* OFFのときは赤色 */
+.action-btn.on {
+  background: #248046; /* ON（有効）の時は緑、または #5865f2 (青) に変更可能 */
 }
 
 /* 右側用参加者リスト */
