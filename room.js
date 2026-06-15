@@ -1,5 +1,5 @@
 import { db } from "./firebase.js";
-import { ref, set, push, onChildAdded, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+import { ref, set, push, onChildAdded, onValue, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 export let myId = "user_" + Math.random().toString(36).substring(2, 9);
 export let roomParticipants = {};
@@ -7,6 +7,7 @@ export let roomParticipants = {};
 const roomId = "default_room"; 
 const participantsRef = ref(db, `rooms/${roomId}/participants`);
 const signalingRef = ref(db, `rooms/${roomId}/signaling/${myId}`);
+const chatRef = ref(db, `rooms/${roomId}/messages`); // チャット履歴の保存先
 
 let signalingListener = null;
 
@@ -21,36 +22,36 @@ export async function joinRoom(name) {
   await set(myParticipantRef, { name: name });
   console.log(`${name} としてFirebaseの部屋に参加しました。ID: ${myId}`);
 
-  // 【接続切れ・アプリ強制終了対策】
-  // 万が一、下のページを閉じるイベントが間に合わなかった場合でも、
-  // 数分以内にFirebase側が通信切れを検知して自動削除します
+  // 【接続切れ対策】自分が通信切れになったら参加者リストから自分を消す
   onDisconnect(myParticipantRef).remove();
 
-  // 【iPad/Safari対策】タブを閉じる・リロードする瞬間に強制的に削除を実行する
+  // 【iPad/Safari対策】タブを閉じる・リロードする瞬間に即座に自分を削除
   const leaveRoomData = () => {
-    // データベースのURLを取得して、標準のfetchAPIで直接削除命令を送りつける（Safariでも高確率で間に合う設定）
-    const targetUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/participants/${myId}.json`;
-    
-    // keepalive: true をつけることで、ブラウザが閉じられても裏側で送信を完了させてくれます
-    fetch(targetUrl, {
-      method: "DELETE",
-      keepalive: true
-    });
+    const pRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/participants/${myId}.json`;
+    fetch(pRefUrl, { method: "DELETE", keepalive: true });
+
+    // もし自分が最後の1人だった場合、チャット履歴もFetchで強制削除命令を出す（Safari用保険）
+    if (Object.keys(roomParticipants).length <= 1) {
+      const chatRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/messages.json`;
+      fetch(chatRefUrl, { method: "DELETE", keepalive: true });
+    }
   };
 
-  // Safari用：ページが隠れたり閉じたりするイベントに紐付け
   window.addEventListener("pagehide", leaveRoomData);
   window.addEventListener("beforeunload", leaveRoomData);
 }
 
 export function listenParticipants(callback) {
   // 参加者リストの変更をリアルタイムに監視
-  onValue(participantsRef, (snapshot) => {
+  onValue(participantsRef, async (snapshot) => {
     const data = snapshot.val();
     if (data) {
       roomParticipants = data;
     } else {
       roomParticipants = {};
+      // 【履歴削除ロジック】参加者が完全に0人になったら、チャット履歴を自動で綺麗に削除する
+      await remove(chatRef);
+      console.log("部屋が空になったため、チャット履歴を消去しました。");
     }
     callback(roomParticipants);
   });
@@ -64,11 +65,34 @@ export async function updateMyName(newName) {
 }
 
 /**
+ * チャットメッセージをFirebaseに送信する関数（DataChannelではなく安全なFirebase経由に変更）
+ */
+export function sendChatMessageToFirebase(sender, text) {
+  const newMessageRef = push(chatRef);
+  set(newMessageRef, {
+    sender: sender,
+    text: text,
+    timestamp: Date.now()
+  });
+}
+
+/**
+ * リアルタイムにチャットメッセージを受信するリスナー
+ */
+export function listenChatMessages(callback) {
+  // 新しいメッセージが追加された瞬間をキャッチ
+  onChildAdded(chatRef, (snapshot) => {
+    const msg = snapshot.val();
+    if (msg) {
+      callback(msg.sender, msg.text);
+    }
+  });
+}
+
+/**
  * webrtc.js から呼び出されるシグナリング送信関数
  */
 export function sendSignalingMessage(targetPeerId, payload) {
-  console.log(`[Firebase送信] 宛先: ${targetPeerId}`, payload);
-  
   const targetSignalingRef = ref(db, `rooms/${roomId}/signaling/${targetPeerId}`);
   const newMessageRef = push(targetSignalingRef);
   set(newMessageRef, {
@@ -82,17 +106,13 @@ export function sendSignalingMessage(targetPeerId, payload) {
  */
 export function listenSignalingMessage(callback) {
   signalingListener = callback;
-  
-  // 自分宛てのシグナリング用ノードにデータが追加された瞬間をキャッチ
   onChildAdded(signalingRef, (snapshot) => {
     const msg = snapshot.val();
     if (msg && msg.from !== myId) {
-      console.log(`[Firebase受信] 送信元: ${msg.from}`);
       if (signalingListener) {
         signalingListener(msg.from, msg.data);
       }
-      // 処理したシグナリングメッセージは即座に削除
-      remove(snapshot.ref);
+      remove(snapshot.ref); // 処理したシグナリングは即座に削除
     }
   });
 }
