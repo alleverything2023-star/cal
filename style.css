@@ -1,340 +1,116 @@
-/* 全体リセット */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* テーマ設定（変数） */
+.dark-theme {
+  --bg-main: #1e1f22;
+  --bg-card: #2b2d31;
+  --bg-left: #111214;
+  --bg-input: #1e1f22;
+  --text-main: #f2f3f5;
+  --text-muted: #b5bac1;
+  --accent: #5865f2;
+  --danger: #da373c;
+  --success: #248046;
 }
+
+.light-theme {
+  --bg-main: #f2f3f5;
+  --bg-card: #ffffff;
+  --bg-left: #e3e5e8;
+  --bg-input: #ffffff;
+  --text-main: #313338;
+  --text-muted: #5c5e66;
+  --accent: #5865f2;
+  --danger: #da373c;
+  --success: #248046;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body, html {
   width: 100%;
-  height: 100dvh; /* ★iPadの見切れ対策：dvhに変更 */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: #1e1f22;
-  color: #f2f3f5;
+  height: 100dvh;
+  font-family: -apple-system, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
   overflow: hidden;
 }
 
-/* --- 入室前画面のスタイル --- */
+/* --- 入室前画面 --- */
 #joinScreen {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  height: 100dvh; /* ★dvhに変更 */
-  background-color: #313338;
+  display: flex; justify-content: center; align-items: center;
+  width: 100%; height: 100dvh;
+  background-color: var(--bg-main);
 }
-
 .setup-container {
-  background: #2b2d31;
-  padding: 30px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 450px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  background: var(--bg-card);
+  padding: 30px; border-radius: 12px;
+  width: 90%; max-width: 400px;
   text-align: center;
 }
-
 .preview-box {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #111;
-  border-radius: 8px;
-  margin: 15px 0;
-  overflow: hidden;
+  width: 100%; aspect-ratio: 16/9; background: #000;
+  border-radius: 8px; margin: 15px 0; overflow: hidden;
 }
-
-.preview-box video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.fallback-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #aaa;
-}
-
-.toggle-controls, .device-selects, .join-form {
-  margin-top: 15px;
-  text-align: left;
-}
-
-.toggle-controls label {
-  display: block;
-  margin-bottom: 8px;
-  cursor: pointer;
-}
-
-.select-field {
-  margin-bottom: 10px;
-}
-
-.select-field label {
-  display: block;
-  font-size: 0.85rem;
-  color: #b5bac1;
-  margin-bottom: 4px;
-}
-
+.preview-box video { width: 100%; height: 100%; object-fit: cover; }
 select, input[type="text"] {
-  width: 100%;
-  padding: 10px;
-  border-radius: 6px;
-  border: none;
-  background: #1e1f22;
-  color: white;
+  width: 100%; padding: 10px; margin-top: 5px;
+  border-radius: 6px; border: 1px solid #ccc;
+  background: var(--bg-input); color: var(--text-main);
 }
-
 #joinButton {
-  width: 100%;
-  padding: 12px;
-  background: #5865f2;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 15px;
+  width: 100%; padding: 12px; background: var(--accent);
+  color: white; border: none; border-radius: 6px; font-weight: bold; margin-top: 20px;
 }
 
-#joinButton:hover {
-  background: #4752c4;
+/* --- 右上のコントロールボタン群 --- */
+.top-controls {
+  position: fixed; top: 15px; right: 15px;
+  z-index: 100; display: flex; gap: 10px;
 }
+.square-btn {
+  width: 45px; height: 45px; background: rgba(0,0,0,0.5);
+  color: white; border: none; border-radius: 8px;
+  font-size: 1.2rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.square-btn:hover { background: rgba(0,0,0,0.7); }
 
-/* --- ルーム画面（全体レイアウト） --- */
-.app-layout {
-  display: flex;
-  flex-direction: column;
-  width: 100vw;
-  height: 100dvh; /* ★iPadの見切れ対策：dvhに変更 */
+/* --- 設定モーダル --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 1000;
+  display: flex; justify-content: center; align-items: center;
 }
+.modal-content {
+  background: var(--bg-card); padding: 25px; border-radius: 12px;
+  width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.modal-content h3 { margin-bottom: 20px; }
+.modal-item { margin-bottom: 15px; text-align: left; }
+.modal-item label { display: block; font-size: 0.9rem; margin-bottom: 5px; }
+.modal-item button { padding: 8px 12px; cursor: pointer; }
+.close-btn { width: 100%; padding: 10px; margin-top: 10px; background: #666; color: #fff; border: none; border-radius: 6px; cursor: pointer;}
 
-.main-content {
-  display: flex;
-  flex: 1;
-  width: 100%;
-  min-height: 0; /* ★重要：中身のビデオのせいで枠が縦に突き抜けるのを防ぐ防衛コード */
-  overflow: hidden;
-}
+/* --- ルーム画面レイアウト --- */
+.app-layout { display: flex; flex-direction: column; width: 100vw; height: 100dvh; }
+.main-content { display: flex; flex: 1; width: 100%; overflow: hidden; min-height: 0; }
 
-/* ========================================== */
-/* パターン1：デフォルトレイアウト（左7 : 右3）   */
-/* ========================================== */
-.layout-default #leftContainer {
-  flex: 7;
-  height: 100%;
-  min-height: 0; /* ★防衛コード */
-  padding: 20px;
-  background-color: #111214;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+.layout-default #leftContainer { flex: 7; background: var(--bg-left); display: flex; justify-content: center; align-items: center; padding: 20px; }
+.layout-default #rightContainer { flex: 3; background: var(--bg-card); border-left: 1px solid #3f4147; padding: 20px; }
+.layout-sidebar #leftContainer { flex: 1; background: var(--bg-left); overflow-y: auto; padding: 10px; }
+.layout-sidebar #rightContainer { flex: 4; background: var(--bg-card); padding: 20px; }
 
-.layout-default #rightContainer {
-  flex: 3;
-  height: 100%;
-  background-color: #2b2d31;
-  border-left: 1px solid #3f4147;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-}
+/* ビデオグリッド共通 */
+#videoGrid { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 15px; width: 100%; height: 100%; }
+.videoCard { background: var(--bg-card); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; width: 100%; max-width: 800px; height: calc(100% - 20px); }
+.layout-sidebar .videoCard { aspect-ratio: 4/3; width: 100% !important; height: auto !important; margin-bottom: 10px; }
+.video-wrapper { flex: 1; background: #000; display: flex; justify-content: center; align-items: center; }
+.video-wrapper video { width: 100%; height: 100%; object-fit: contain; }
 
-/* デフォルト時のビデオグリッド配置（等分割） */
-.layout-default #videoGrid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-content: center;
-  gap: 15px;
-  width: 100%;
-  height: 100%;
-  max-width: 1200px;
-}
+/* 操作バー */
+.videoControlBar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #232428; height: 50px; }
+.videoName { font-size: 0.9rem; color: #fff; }
+.action-btn { background: var(--danger); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+.action-btn.on { background: var(--success); }
 
-.layout-default .videoCard {
-  background-color: #2b2d31;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  transition: all 0.3s ease;
-  width: 100%;
-  height: calc(100% - 10px);
-  max-width: 800px;
-}
-
-.layout-default #videoGrid:has(.videoCard:nth-child(2):last-child) .videoCard {
-  width: calc(50% - 10px);
-  height: 60%;
-}
-.layout-default #videoGrid:has(.videoCard:nth-child(3):last-child) .videoCard,
-.layout-default #videoGrid:has(.videoCard:nth-child(4):last-child) .videoCard {
-  width: calc(50% - 10px);
-  height: calc(50% - 10px);
-}
-.layout-default #videoGrid:has(.videoCard:nth-child(5):not(:last-child)) .videoCard,
-.layout-default #videoGrid:has(.videoCard:nth-child(5):last-child) .videoCard {
-  width: calc(33.33% - 10px);
-  height: calc(50% - 10px);
-}
-
-/* ========================================== */
-/* パターン2：サイドバー表示（左1/5 : 右4/5）     */
-/* ========================================== */
-.layout-sidebar #leftContainer {
-  flex: 1; /* 横幅1/5 */
-  height: 100%;
-  padding: 10px;
-  background-color: #111214;
-  border-right: 1px solid #2b2d31;
-  overflow-y: auto; /* 人数が多い時に縦スクロール可能にする */
-}
-
-.layout-sidebar #rightContainer {
-  flex: 4; /* 横幅4/5（拡張メイン画面） */
-  height: 100%;
-  background-color: #2b2d31;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-/* サイドバー時のビデオグリッド配置（縦一列に並べる） */
-.layout-sidebar #videoGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-}
-
-.layout-sidebar .videoCard {
-  width: 100% !important;
-  height: auto !important;
-  aspect-ratio: 4 / 3;
-  background-color: #2b2d31;
-  border-radius: 6px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* 共通パーツ */
-.right-content-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.future-feature-space {
-  flex-grow: 1;
-  margin-top: 20px;
-  border: 2px dashed #4e5058;
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #313338;
-}
-
-/* 下画面：機能ボタンを追加できる細めの余白 */
-#bottomContainer {
-  height: 45px; /* さらに少し細めに調整 */
-  background-color: #1e1f22;
-  border-top: 1px solid #2b2d31;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 20px;
-  flex-shrink: 0; /* ★重要：絶対にこのエリア自体が縮まないように固定 */
-}
-
-/* レイアウト切り替えボタンの装飾 */
-.control-toggle-btn {
-  background: #4e5058;
-  border: none;
-  color: white;
-  padding: 6px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 0.85rem;
-  transition: background 0.2s;
-}
-
-.control-toggle-btn:hover {
-  background: #6d6f78;
-}
-
-.video-wrapper {
-  flex: 1;
-  width: 100%;
-  background: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-}
-
-.video-wrapper video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* ビデオの下部操作バー */
-.videoControlBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 10px;
-  background: #232428;
-  height: 40px;
-}
-
-.videoName {
-  font-size: 0.85rem;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.btn-group {
-  display: flex;
-  gap: 4px;
-}
-
-.action-btn {
-  background: #da373c;
-  border: none;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.action-btn.on {
-  background: #248046;
-}
-
-/* 右側用参加者リスト */
-#participantList {
-  list-style: none;
-  margin-top: 10px;
-}
-
-#participantList li {
-  padding: 8px 12px;
-  background: #313338;
-  margin-bottom: 6px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
+#bottomContainer { height: 45px; background: var(--bg-main); border-top: 1px solid #2b2d31; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+#participantList li { padding: 8px; background: var(--bg-main); margin-bottom: 5px; border-radius: 4px; list-style: none; }
