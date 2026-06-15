@@ -1,61 +1,65 @@
-/**
- * カメラとマイクの許可を取り、ストリームを取得する
- */
-export async function getLocalStream(videoDeviceId = null, audioDeviceId = null) {
-  // iPadで内向きカメラ（インカメラ）をデフォルトで優先させるための設定
-  const defaultVideoConstraint = videoDeviceId 
-    ? { deviceId: { exact: videoDeviceId } } 
-    : { facingMode: "user" }; // iPadのフロントカメラを狙い撃ち
-
+// カメラ・マイクのストリームを取得する関数
+export async function getLocalStream(cameraId = null, micId = null) {
   const constraints = {
-    video: defaultVideoConstraint,
-    audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true
+    audio: micId ? { deviceId: { exact: micId } } : true,
+    video: true // デフォルト
   };
+
+  if (cameraId) {
+    // 選択されたカメラのラベル（名前）に「back」「背面」「environment」「外」が含まれているか判定
+    const videoDevices = await navigator.mediaDevices.enumerateDevices();
+    const selectedDevice = videoDevices.find(device => device.deviceId === cameraId);
+    
+    const isBackCamera = selectedDevice && (
+      /back/i.test(selectedDevice.label) || 
+      /背面/i.test(selectedDevice.label) || 
+      /外/i.test(selectedDevice.label) || 
+      /environment/i.test(selectedDevice.label)
+    );
+
+    if (isBackCamera) {
+      // 背面カメラの場合は facingMode を指定（iPad/iPhoneで極めて重要）
+      constraints.video = {
+        deviceId: { exact: cameraId },
+        facingMode: "environment"
+      };
+    } else {
+      // 前面カメラなどの場合
+      constraints.video = {
+        deviceId: { exact: cameraId },
+        facingMode: "user"
+      };
+    }
+  } else {
+    // 初回起動時などは前面カメラをデフォルトにする
+    constraints.video = { facingMode: "user" };
+  }
+
   return await navigator.mediaDevices.getUserMedia(constraints);
 }
 
-/**
- * 接続されているカメラ・マイクの一覧をセレクトボックスに反映する
- */
+// 利用可能なデバイス一覧をセレクトボックスに反映する関数
 export async function updateDeviceList() {
   const cameraSelect = document.getElementById("cameraSelect");
   const micSelect = document.getElementById("micSelect");
 
-  const currentCamera = cameraSelect.value;
-  const currentMic = micSelect.value;
+  if (!cameraSelect || !micSelect) return;
 
-  // 1. デバイス一覧を取得
-  const devices = await navigator.mediaDevices.enumerateDevices();
-
-  // 2. 取得したデバイスの中に「ラベル（名前）」がちゃんと存在するかチェック
-  // ラベルが空の場合、iPadのセキュリティで隠されている証拠
-  const hasLabels = devices.some(device => device.label);
-  
-  if (!hasLabels) {
-    console.log("iPadの仕様によりデバイス名がまだ隠されています。");
-  }
-
-  // セレクトボックスの中身をクリア
+  // 既存の選択肢をクリア
   cameraSelect.innerHTML = "";
   micSelect.innerHTML = "";
 
-  let cameraCount = 0;
-  let micCount = 0;
+  const devices = await navigator.mediaDevices.enumerateDevices();
 
   devices.forEach(device => {
     const option = document.createElement("option");
     option.value = device.deviceId;
 
     if (device.kind === "videoinput") {
-      cameraCount++;
-      // ラベルが空なら「カメラ 1」などの代替テキストを入れる（オプションが空になるのを防ぐ）
-      option.text = device.label || `カメラ ${cameraCount}`;
-      if (device.deviceId === currentCamera) option.selected = true;
+      option.text = device.label || `カメラ ${cameraSelect.length + 1}`;
       cameraSelect.appendChild(option);
     } else if (device.kind === "audioinput") {
-      micCount++;
-      option.text = device.label || `マイク ${micCount}`;
-      if (device.deviceId === currentMic) option.selected = true;
+      option.text = device.label || `マイク ${micSelect.length + 1}`;
       micSelect.appendChild(option);
     }
   });
