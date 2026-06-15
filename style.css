@@ -112,24 +112,23 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   transition: flex 0.25s ease;
 }
 
-/* ★ 通常時の自動グリッド（縦幅を固定せず、比率で自動計算させる） */
+/* 通常時の自動グリッド */
 .layout-default #videoGrid {
   display: grid;
   gap: 20px;
   width: 100%;
   height: 100%;
-  padding: 30px;
+  padding: 20px;
   justify-content: center;
   align-content: center;
   box-sizing: border-box;
 }
 
-/* 列の割り振りのみを定義し、高さは要素に任せる */
-.layout-default #videoGrid.count-1 { grid-template-columns: minmax(200px, 750px); }
-.layout-default #videoGrid.count-2 { grid-template-columns: repeat(2, minmax(150px, 540px)); }
-.layout-default #videoGrid.count-3 { grid-template-columns: repeat(2, minmax(150px, 480px)); }
+.layout-default #videoGrid.count-1 { grid-template-columns: minmax(200px, 650px); }
+.layout-default #videoGrid.count-2 { grid-template-columns: repeat(2, minmax(150px, 500px)); }
+.layout-default #videoGrid.count-3 { grid-template-columns: repeat(2, minmax(150px, 450px)); }
 .layout-default #videoGrid.count-3 .videoCard:nth-child(1) { grid-column: 1 / span 2; width: 50%; justify-self: center; }
-.layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 500px)); }
+.layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 480px)); }
 .layout-default #videoGrid.count-many { grid-template-columns: repeat(3, 1fr); }
 
 /* 比変更ボタン（1/5モード）が押された時の縦一列レイアウト */
@@ -144,12 +143,8 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .layout-sidebar .videoCard {
   width: 100% !important;
 }
-.layout-sidebar #videoGrid.count-3 .videoCard:nth-child(1) {
-  grid-column: auto;
-  width: 100%;
-}
 
-/* ★ ビデオカードの共通装飾（アスペクト比を16:10程度にし、映像＋バーが必ず収まるようにする） */
+/* ★ ビデオカード自体は「中の要素（16:9映像 + 46px固定バー）」の合計値で自動伸縮するよう変更 */
 .videoCard {
   background: var(--bg-card);
   border-radius: 12px;
@@ -157,15 +152,15 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-  position: relative;
   width: 100%;
-  aspect-ratio: 16 / 11; /* 16:9の映像と下の46pxのバーが綺麗に収まる黄金比 */
+  height: max-content; /* 縦幅を無理に固定しない */
 }
 
-/* 映像が入るエリア */
+/* ★ どんなアスペクト比の映像（スマホ縦など）が来ても、必ず16:9の枠に収める */
 .video-wrapper { 
-  flex: 1; 
-  background: #111214; 
+  width: 100%;
+  aspect-ratio: 16 / 9; /* 映像エリアの比率を完全に固定 */
+  background: #000000; 
   display: flex; 
   justify-content: center; 
   align-items: center;
@@ -174,10 +169,10 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .video-wrapper video { 
   width: 100%; 
   height: 100%; 
-  object-fit: cover; 
+  object-fit: contain; /* スマホ縦画面の場合は左右に黒帯を入れて全体を収める（はみ出し防止） */
 }
 
-/* ★ 名前とアイコンがあるコントロールバー */
+/* ★ 名前とアイコンがあるコントロールバー（高さ制限をガチガチに固定） */
 .videoControlBar { 
   display: flex; 
   justify-content: space-between; 
@@ -185,9 +180,9 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   padding: 0 14px; 
   background: #232428; 
   height: 46px; 
-  min-height: 46px; /* 映像の縮小に潰されないよう高さを絶対死守 */
-  position: relative;
-  z-index: 10;
+  min-height: 46px; /* 絶対に縮まないように固定 */
+  max-height: 46px; 
+  box-sizing: border-box;
 }
 .videoName { font-size: 0.88rem; color: #fff; font-weight: 500; }
 .btn-group { display: flex; gap: 8px; }
