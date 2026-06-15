@@ -9,7 +9,6 @@ listenSignalingMessage((fromPeerId, signalingData) => {
   handleSignalingMessage(fromPeerId, signalingData);
 });
 
-// app.js側のエラー防止用の空関数（チャットはroom.js側でFirebase経由で処理するため不要になりました）
 export function registerOnMessage(callback) {}
 export function broadcastMessage(messageData) {}
 
