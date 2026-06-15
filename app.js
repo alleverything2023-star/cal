@@ -18,8 +18,16 @@ const joinButton = document.getElementById("joinButton");
 const myLocalVideo = document.getElementById("myLocalVideo");
 const myLocalName = document.getElementById("myLocalName");
 const videoGrid = document.getElementById("videoGrid");
+
+// ボトムバーコントロール
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
+const layoutToggleBtn = document.getElementById("layoutToggleBtn");
+const appLayout = document.getElementById("appLayout");
+
+// ビデオカード内ステータス
+const myCamStatus = document.getElementById("myCamStatus");
+const myMicStatus = document.getElementById("myMicStatus");
 
 // 設定モーダル
 const settingsBtn = document.getElementById("settingsBtn");
@@ -97,7 +105,7 @@ themeToggleBtn.addEventListener("click", () => {
     themeToggleBtn.textContent = "ダークモードに切替";
   } else {
     document.body.classList.replace("light-theme", "dark-theme");
-    themeToggleBtn.textContent = "ダークモードに切替";
+    themeToggleBtn.textContent = "ライトモードに切替";
   }
 });
 
@@ -110,16 +118,15 @@ updateNameBtn.addEventListener("click", async () => {
   alert("名前を更新しました");
 });
 
+// 比（比率・レイアウト）の変更ボタンの制御
+layoutToggleBtn.addEventListener("click", () => {
+  appLayout.classList.toggle("layout-ratio-alt");
+});
+
 // 人数別グリッドクラスを適用するヘルパー
 function updateGridClass() {
   const cardCount = videoGrid.querySelectorAll(".videoCard").length;
-  videoGrid.className = ""; 
-  
-  if (cardCount === 1) videoGrid.classList.add("count-1");
-  else if (cardCount === 2) videoGrid.classList.add("count-2");
-  else if (cardCount === 3) videoGrid.classList.add("count-3");
-  else if (cardCount === 4) videoGrid.classList.add("count-4");
-  else if (cardCount > 4) videoGrid.classList.add("count-many");
+  videoGrid.className = "count-" + (cardCount <= 4 ? cardCount : "many");
 }
 
 // 3. 入室処理
@@ -132,9 +139,11 @@ joinButton.addEventListener("click", async () => {
   if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
   if (audioTrack) audioTrack.enabled = initMicToggle.checked;
 
-  // 初期状態のボタン表示（onクラスがあれば斜線なし、なければ斜線あり）
+  // 初期状態をボトムバー・映像内インジケータ双方に反映
   myCamBtn.classList.toggle("on", initCameraToggle.checked);
+  myCamStatus.classList.toggle("on", initCameraToggle.checked);
   myMicBtn.classList.toggle("on", initMicToggle.checked);
+  myMicStatus.classList.toggle("on", initMicToggle.checked);
 
   await joinRoom(name);
   isJoined = true;
@@ -144,7 +153,6 @@ joinButton.addEventListener("click", async () => {
   myLocalVideo.srcObject = localStream;
   myLocalName.textContent = `${name} (あなた)`;
 
-  // 参加者リストの監視（画面右側の一覧表示は廃止）
   listenParticipants((participants) => {
     for (const id in peerConnections) {
       if (!participants[id]) {
@@ -169,25 +177,27 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 自分のカメラボタン変更処理（SVG斜線切り替え連動）
+// 自分のカメラボタントグル（ボトムバー・カード内斜線と連動）
 myCamBtn.addEventListener("click", () => {
   const t = localStream.getVideoTracks()[0];
   if (t) { 
     t.enabled = !t.enabled; 
     myCamBtn.classList.toggle("on", t.enabled); 
+    myCamStatus.classList.toggle("on", t.enabled); 
   }
 });
 
-// 自分のマイクボタン変更処理（SVG斜線切り替え連動）
+// 自分のマイクボタントグル（ボトムバー・カード内斜線と連動）
 myMicBtn.addEventListener("click", () => {
   const t = localStream.getAudioTracks()[0];
   if (t) { 
     t.enabled = !t.enabled; 
     myMicBtn.classList.toggle("on", t.enabled); 
+    myMicStatus.classList.toggle("on", t.enabled); 
   }
 });
 
-// 4. 相手の映像カードを追加する関数（SVG斜線アイコンを常時設置）
+// 4. 通話相手のビデオカード生成と状態監視（表示のみ）
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
   const card = document.createElement("div");
@@ -199,17 +209,17 @@ function addVideoCard(id, name, stream) {
     <div class="videoControlBar">
       <span class="videoName">${name}</span>
       <div class="btn-group">
-        <div id="camStatus-${id}" class="action-btn on">
-          <svg class="icon-svg icon-cam" viewBox="0 0 24 24">
-            <path class="cam-body" d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
-            <polygon class="cam-lens" points="17 11 22 8 22 16 17 13"/>
+        <div id="camStatus-${id}" class="status-indicator on">
+          <svg class="icon-svg" viewBox="0 0 24 24">
+            <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
+            <polygon points="17 11 22 8 22 16 17 13"/>
             <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
           </svg>
         </div>
-        <div id="micStatus-${id}" class="action-btn on">
-          <svg class="icon-svg icon-mic" viewBox="0 0 24 24">
-            <rect class="mic-body" x="9" y="2" width="6" height="11" rx="3"/>
-            <path class="mic-stand" d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
+        <div id="micStatus-${id}" class="status-indicator on">
+          <svg class="icon-svg" viewBox="0 0 24 24">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
             <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
           </svg>
         </div>
@@ -220,23 +230,15 @@ function addVideoCard(id, name, stream) {
   videoGrid.appendChild(card);
   updateGridClass();
 
-  // 相手のストリームのトラック変更イベントを検知して、アイコンの斜線をリアルタイムで動かす処理
   const camIndicator = card.querySelector(`#camStatus-${id}`);
   const micIndicator = card.querySelector(`#micStatus-${id}`);
-
-  stream.onremovetrack = () => { /* トラック変更時用 */ };
   
-  // 定期的にトラックの状態（Muteか有効か）をチェックして斜線を上書きするループ
+  // 定期的に相手のトラック状態をチェックし斜線を同期
   setInterval(() => {
     const vTrack = stream.getVideoTracks()[0];
     const aTrack = stream.getAudioTracks()[0];
-    
-    if (vTrack) {
-      camIndicator.classList.toggle("on", vTrack.enabled && !vTrack.muted);
-    }
-    if (aTrack) {
-      micIndicator.classList.toggle("on", aTrack.enabled && !aTrack.muted);
-    }
+    if (vTrack) camIndicator.classList.toggle("on", vTrack.enabled && !vTrack.muted);
+    if (aTrack) micIndicator.classList.toggle("on", aTrack.enabled && !aTrack.muted);
   }, 500);
 }
 
