@@ -46,7 +46,6 @@
 
   <div id="roomScreen" style="display: none;">
     <div class="top-controls">
-      <button id="layoutToggleBtn" class="square-btn" title="レイアウト切り替え">🔳</button>
       <button id="settingsBtn" class="square-btn" title="設定">⚙️</button>
     </div>
 
@@ -66,10 +65,11 @@
       </div>
     </div>
 
-    <div class="app-layout layout-default" id="appLayout">
+    <div class="app-layout" id="appLayout">
       <div class="main-content">
         <div id="leftContainer">
-          <div id="videoGrid">
+          <div id="videoGrid" class="count-1">
+            
             <div class="videoCard" id="myVideoCard">
               <div class="video-wrapper">
                 <video id="myLocalVideo" autoplay playsinline muted></video>
@@ -77,21 +77,25 @@
               <div class="videoControlBar">
                 <span class="videoName" id="myLocalName">あなた</span>
                 <div class="btn-group">
-                  <button id="myCamBtn" class="action-btn">📷</button>
-                  <button id="myMicBtn" class="action-btn">🎤</button>
+                  <button id="myCamBtn" class="action-btn">
+                    <svg class="icon-svg icon-cam" viewBox="0 0 24 24">
+                      <path class="cam-body" d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
+                      <polygon class="cam-lens" points="17 11 22 8 22 16 17 13"/>
+                      <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
+                    </svg>
+                  </button>
+                  
+                  <button id="myMicBtn" class="action-btn">
+                    <svg class="icon-svg icon-mic" viewBox="0 0 24 24">
+                      <rect class="mic-body" x="9" y="2" width="6" height="11" rx="3"/>
+                      <path class="mic-stand" d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
+                      <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div id="rightContainer">
-          <div class="right-content-wrapper">
-            <h3>参加者一覧</h3>
-            <ul id="participantList"></ul>
-            <div class="future-feature-space">
-              <p style="color: var(--text-muted); font-size: 0.8rem;">※拡張エリア</p>
-            </div>
           </div>
         </div>
       </div>
