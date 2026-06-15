@@ -1,39 +1,105 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-import { 
-  getDatabase, 
-  ref, 
-  set, 
-  update,
-  onValue, 
-  onDisconnect 
-} from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
-import { db } from "./firebase.js";
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ブラウザ通話アプリ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme"> <div id="joinScreen">
+    <div class="setup-container">
+      <h2>通話に参加</h2>
+      
+      <div class="preview-box">
+        <video id="myPreviewVideo" autoplay playsinline muted></video>
+        <div id="previewFallback" class="fallback-text" style="display: none;">カメラOFF</div>
+      </div>
 
-export let myId = null;
-let myUserRef = null;
+      <div class="toggle-controls">
+        <label>
+          <input type="checkbox" id="initCameraToggle" checked> カメラをONにする
+        </label>
+        <label>
+          <input type="checkbox" id="initMicToggle" checked> マイクをONにする
+        </label>
+      </div>
 
-export async function joinRoom(name) {
-  myId = crypto.randomUUID();
-  myUserRef = ref(db, "participants/" + myId);
+      <div class="device-selects">
+        <div class="select-field">
+          <label for="cameraSelect">カメラ:</label>
+          <select id="cameraSelect"></select>
+        </div>
+        <div class="select-field">
+          <label for="micSelect">マイク:</label>
+          <select id="micSelect"></select>
+        </div>
+      </div>
 
-  await set(myUserRef, {
-    name,
-    joinedAt: Date.now()
-  });
+      <div class="join-form">
+        <input type="text" id="nameInput" placeholder="表示名を入力してください" maxlength="15">
+        <button id="joinButton">入室する</button>
+      </div>
+    </div>
+  </div>
 
-  // 切断時に削除
-  onDisconnect(myUserRef).remove();
-}
+  <div id="roomScreen" style="display: none;">
+    <div class="top-controls">
+      <button id="layoutToggleBtn" class="square-btn" title="レイアウト切り替え">🔳</button>
+      <button id="settingsBtn" class="square-btn" title="設定">⚙️</button>
+    </div>
 
-// ★名前を更新するための関数を追加
-export async function updateMyName(newName) {
-  if (!myUserRef) return;
-  await update(myUserRef, { name: newName });
-}
+    <div id="settingsModal" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+        <h3>設定</h3>
+        <div class="modal-item">
+          <label>テーマ:</label>
+          <button id="themeToggleBtn">ライトモードに切替</button>
+        </div>
+        <div class="modal-item">
+          <label>名前変更:</label>
+          <input type="text" id="newNameInput" placeholder="新しい名前">
+          <button id="updateNameBtn">更新</button>
+        </div>
+        <button id="closeSettingsBtn" class="close-btn">閉じる</button>
+      </div>
+    </div>
 
-export function listenParticipants(callback) {
-  onValue(ref(db, "participants"), snapshot => {
-    const data = snapshot.val() || {};
-    callback(data);
-  });
-}
+    <div class="app-layout layout-default" id="appLayout">
+      <div class="main-content">
+        <div id="leftContainer">
+          <div id="videoGrid">
+            <div class="videoCard" id="myVideoCard">
+              <div class="video-wrapper">
+                <video id="myLocalVideo" autoplay playsinline muted></video>
+              </div>
+              <div class="videoControlBar">
+                <span class="videoName" id="myLocalName">あなた</span>
+                <div class="btn-group">
+                  <button id="myCamBtn" class="action-btn">📷</button>
+                  <button id="myMicBtn" class="action-btn">🎤</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="rightContainer">
+          <div class="right-content-wrapper">
+            <h3>参加者一覧</h3>
+            <ul id="participantList"></ul>
+            <div class="future-feature-space">
+              <p style="color: var(--text-muted); font-size: 0.8rem;">※拡張エリア</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bottomContainer">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">※ボトムバー</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
