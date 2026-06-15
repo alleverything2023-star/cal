@@ -3,6 +3,8 @@ import { myId, sendSignalingMessage, listenSignalingMessage } from "./room.js";
 export const peerConnections = {};
 const dataChannels = {};
 let onMessageCallback = null;
+
+// 【改善】app.js側の最新ストリームをいつでも参照できるようにDOMから動的に取得、または保持する仕組み
 let localStreamRef = null;
 let onRemoteStreamRef = null;
 
@@ -25,34 +27,46 @@ export function broadcastMessage(messageData) {
   }
 }
 
+// 【修正】自分から接続を仕掛ける（Offer側）か、相手のOfferを受け入れる（Answer側）かを明確に分離
 export function startP2P(peerId, localStream, onRemoteStream) {
   if (peerConnections[peerId]) return;
 
-  localStreamRef = localStream;
-  onRemoteStreamRef = onRemoteStream;
+  // ストリームの参照を保持
+  if (localStream) localStreamRef = localStream;
+  if (onRemoteStream) onRemoteStreamRef = onRemoteStream;
 
+  // 1. PeerConnectionの作成
   const pc = new RTCPeerConnection({
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
   });
   peerConnections[peerId] = pc;
 
-  if (localStream) {
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  // 2. カメラ・マイクのトラックを追加
+  const currentStream = localStream || localStreamRef;
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => pc.addTrack(track, currentStream));
   }
 
+  // 3. 各種イベントリスナーの設定
   pc.ontrack = (e) => {
-    if (onRemoteStream) onRemoteStream(peerId, e.streams[0]);
+    if (onRemoteStreamRef) onRemoteStreamRef(peerId, e.streams[0]);
   };
 
-  // 接続経路（ICE）が見つかったら即座にサーバー経由で相手に転送
   pc.onicecandidate = (e) => {
     if (e.candidate) {
       sendSignalingMessage(peerId, { type: "candidate", candidate: e.candidate });
     }
   };
 
-  // IDの比較による衝突回避ルール（小さいIDのユーザーがオファー側になる）
+  // 相手からデータチャネルが送られてきた時用の受け皿（主にAnswer側が通る）
+  pc.ondatachannel = (e) => {
+    console.log(`[WebRTC] 相手からDataChannelを検出しました: ${peerId}`);
+    setupDataChannel(peerId, e.channel);
+  };
+
+  // 4. 【超重要】衝突を回避しつつ、Offer側だけが能動的に接続を開始する
   if (myId < peerId) {
+    console.log(`[WebRTC] 自分(${myId})がOffer側としてDataChannelを作成します -> ${peerId}`);
     const dc = pc.createDataChannel("chatChannel");
     setupDataChannel(peerId, dc);
 
@@ -62,17 +76,15 @@ export function startP2P(peerId, localStream, onRemoteStream) {
         sendSignalingMessage(peerId, { type: "offer", sdp: pc.localDescription });
       })
       .catch(err => console.error("Offer作成失敗:", err));
+  } else {
+    console.log(`[WebRTC] 自分(${myId})はAnswer側です。相手からのOffer待機中... -> ${peerId}`);
   }
-
-  pc.ondatachannel = (e) => {
-    setupDataChannel(peerId, e.channel);
-  };
 }
 
 function setupDataChannel(peerId, dc) {
   dataChannels[peerId] = dc;
 
-  dc.onopen = () => console.log(`DataChannel 接続完了: ${peerId}`);
+  dc.onopen = () => console.log(`🎉 チャット用のDataChannelが完全に接続されました: ${peerId}`);
   dc.onclose = () => {
     console.log(`DataChannel 切断: ${peerId}`);
     delete dataChannels[peerId];
@@ -97,7 +109,16 @@ function setupDataChannel(peerId, dc) {
 async function handleSignalingMessage(fromPeerId, data) {
   let pc = peerConnections[fromPeerId];
   
+  // 【修正】相手からOfferが届いた時、まだPCが無ければ「Answer側（受動側）」として初期化する
   if (!pc && data.type === "offer") {
+    // もし app.js の初期化ロジックの都合で localStreamRef が取れない場合、DOMから直接ぶっこ抜く安全策
+    if (!localStreamRef) {
+      const myLocalVideo = document.getElementById("myLocalVideo");
+      if (myLocalVideo && myLocalVideo.srcObject) {
+        localStreamRef = myLocalVideo.srcObject;
+      }
+    }
+    // startP2Pを呼び出して、相手用のRTCPeerConnectionを準備
     startP2P(fromPeerId, localStreamRef, onRemoteStreamRef);
     pc = peerConnections[fromPeerId];
   }
@@ -106,6 +127,7 @@ async function handleSignalingMessage(fromPeerId, data) {
 
   try {
     if (data.type === "offer") {
+      // 相手の条件をセットして、アンサーを返す
       await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
