@@ -19,13 +19,13 @@ const myLocalVideo = document.getElementById("myLocalVideo");
 const myLocalName = document.getElementById("myLocalName");
 const videoGrid = document.getElementById("videoGrid");
 
-// ボトムバーコントロール
+// 右側操作パネル内コントロールボタン
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
 const appLayout = document.getElementById("appLayout");
 
-// ビデオカード内ステータス
+// 自分のカード内ステータス表示
 const myCamStatus = document.getElementById("myCamStatus");
 const myMicStatus = document.getElementById("myMicStatus");
 
@@ -118,9 +118,10 @@ updateNameBtn.addEventListener("click", async () => {
   alert("名前を更新しました");
 });
 
-// 比（比率・レイアウト）の変更ボタンの制御
+// ★ 比（レイアウト）の変更ボタンのクリック制御（1/5幅トグル）
 layoutToggleBtn.addEventListener("click", () => {
-  appLayout.classList.toggle("layout-ratio-alt");
+  appLayout.classList.toggle("layout-default");
+  appLayout.classList.toggle("layout-sidebar");
 });
 
 // 人数別グリッドクラスを適用するヘルパー
@@ -139,7 +140,7 @@ joinButton.addEventListener("click", async () => {
   if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
   if (audioTrack) audioTrack.enabled = initMicToggle.checked;
 
-  // 初期状態をボトムバー・映像内インジケータ双方に反映
+  // 初期状態を右操作パネルボタン・映像内インジケータ双方に反映
   myCamBtn.classList.toggle("on", initCameraToggle.checked);
   myCamStatus.classList.toggle("on", initCameraToggle.checked);
   myMicBtn.classList.toggle("on", initMicToggle.checked);
@@ -177,7 +178,7 @@ joinButton.addEventListener("click", async () => {
   });
 });
 
-// 自分のカメラボタントグル（ボトムバー・カード内斜線と連動）
+// 自分のカメラボタントグル（右操作パネルボタン・カード内斜線と連動）
 myCamBtn.addEventListener("click", () => {
   const t = localStream.getVideoTracks()[0];
   if (t) { 
@@ -187,7 +188,7 @@ myCamBtn.addEventListener("click", () => {
   }
 });
 
-// 自分のマイクボタントグル（ボトムバー・カード内斜線と連動）
+// 自分のマイクボタントグル（右操作パネルボタン・カード内斜線と連動）
 myMicBtn.addEventListener("click", () => {
   const t = localStream.getAudioTracks()[0];
   if (t) { 
@@ -233,7 +234,7 @@ function addVideoCard(id, name, stream) {
   const camIndicator = card.querySelector(`#camStatus-${id}`);
   const micIndicator = card.querySelector(`#micStatus-${id}`);
   
-  // 定期的に相手のトラック状態をチェックし斜線を同期
+  // 定期的に相手のトラック状態をチェックし、カード内斜線表示を同期
   setInterval(() => {
     const vTrack = stream.getVideoTracks()[0];
     const aTrack = stream.getAudioTracks()[0];
