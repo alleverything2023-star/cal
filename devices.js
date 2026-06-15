@@ -1,53 +1,23 @@
 export async function getLocalStream(cameraId = null, micId = null) {
   const constraints = {
-    audio: micId ? { deviceId: { exact: micId } } : true,
-    video: true
+    video: cameraId ? { deviceId: { exact: cameraId } } : true,
+    audio: micId ? { deviceId: { exact: micId } } : true
   };
-
-  if (cameraId) {
-    const videoDevices = await navigator.mediaDevices.enumerateDevices();
-    const selectedDevice = videoDevices.find(device => device.deviceId === cameraId);
-    
-    const isBackCamera = selectedDevice && (
-      /back/i.test(selectedDevice.label) || 
-      /背面/i.test(selectedDevice.label) || 
-      /外/i.test(selectedDevice.label) || 
-      /environment/i.test(selectedDevice.label)
-    );
-
-    if (isBackCamera) {
-      constraints.video = {
-        deviceId: { exact: cameraId },
-        facingMode: "environment"
-      };
-    } else {
-      constraints.video = {
-        deviceId: { exact: cameraId },
-        facingMode: "user"
-      };
-    }
-  } else {
-    constraints.video = { facingMode: "user" };
-  }
-
   return await navigator.mediaDevices.getUserMedia(constraints);
 }
 
 export async function updateDeviceList() {
   const cameraSelect = document.getElementById("cameraSelect");
   const micSelect = document.getElementById("micSelect");
-
   if (!cameraSelect || !micSelect) return;
 
+  const devices = await navigator.mediaDevices.enumerateDevices();
   cameraSelect.innerHTML = "";
   micSelect.innerHTML = "";
-
-  const devices = await navigator.mediaDevices.enumerateDevices();
 
   devices.forEach(device => {
     const option = document.createElement("option");
     option.value = device.deviceId;
-
     if (device.kind === "videoinput") {
       option.text = device.label || `カメラ ${cameraSelect.length + 1}`;
       cameraSelect.appendChild(option);
