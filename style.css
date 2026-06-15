@@ -86,7 +86,6 @@ select, input[type="text"] {
   border-radius: 6px;
   border: none;
   background: #1e1f22;
-  color: #text;
   color: white;
 }
 
@@ -115,9 +114,9 @@ select, input[type="text"] {
 
 /* 左画面：ビデオエリア */
 #leftContainer {
-  flex: 7; /* 全体の7割の幅 */
+  flex: 7;
   height: 100%;
-  padding: 15px;
+  padding: 20px;
   background-color: #111214;
   display: flex;
   justify-content: center;
@@ -126,7 +125,7 @@ select, input[type="text"] {
 
 /* 右画面：拡張用大容量エリア */
 #rightContainer {
-  flex: 3; /* 全体の3割の幅 */
+  flex: 3;
   height: 100%;
   background-color: #2b2d31;
   border-left: 1px solid #3f4147;
@@ -152,51 +151,79 @@ select, input[type="text"] {
   background: #313338;
 }
 
-/* --- ビデオグリッド自動敷き詰めアルゴリズム --- */
+/* --- ビデオグリッド：カメラの比率を一定にしてきれいに分割 --- */
 #videoGrid {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: 15px;
   width: 100%;
   height: 100%;
-  grid-template-columns: repeat(auto-fit, minmax(40%, 1fr));
-  grid-auto-rows: 1fr;
-}
-
-/* 参加者が1人の時は画面いっぱいに広げる */
-#videoGrid:has(.videoCard:nth-child(1):last-child) {
-  grid-template-columns: 1fr;
-}
-
-/* 参加者が2人の時は左右または上下に半分ずつ */
-#videoGrid:has(.videoCard:nth-child(2):last-child) {
-  grid-template-columns: repeat(auto-fit, minmax(45%, 1fr));
+  max-width: 1200px; /* 広がりすぎ防止 */
 }
 
 .videoCard {
-  position: relative;
   background-color: #2b2d31;
   border-radius: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-
-.videoCard video {
+  transition: all 0.3s ease;
+  
+  /* デフォルト（1人）のサイズ */
   width: 100%;
-  flex-grow: 1;
-  object-fit: cover;
-  background-color: #000;
+  height: calc(100% - 50px);
+  max-width: 800px;
 }
 
-/* ビデオの下部操作バー（名前 ＋ ボタン） */
+/* 人数ごとのサイズ調整（等分割ロジック） */
+/* 2人：左右に2分割 */
+#videoGrid:has(.videoCard:nth-child(2):last-child) .videoCard {
+  width: calc(50% - 10px);
+  height: 60%;
+}
+
+/* 3人〜4人：2×2の4分割 */
+#videoGrid:has(.videoCard:nth-child(3):last-child) .videoCard,
+#videoGrid:has(.videoCard:nth-child(4):last-child) .videoCard {
+  width: calc(50% - 10px);
+  height: calc(50% - 10px);
+}
+
+/* 5人〜：3分割ベース */
+#videoGrid:has(.videoCard:nth-child(5):not(:last-child)) .videoCard,
+#videoGrid:has(.videoCard:nth-child(5):last-child) .videoCard {
+  width: calc(33.33% - 10px);
+  height: calc(50% - 10px);
+}
+
+/* ビデオの比率（16:9等）を維持するコンテナ */
+.video-wrapper {
+  flex: 1;
+  width: 100%;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* ★重要：カメラの元の比率を完全に維持して余白を作る */
+}
+
+/* ビデオの下部操作バー */
 .videoControlBar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
   background: #232428;
-  min-height: 45px;
+  height: 50px;
 }
 
 .videoName {
@@ -217,19 +244,17 @@ select, input[type="text"] {
   background: #4e5058;
   border: none;
   color: white;
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.85rem;
-  transition: background 0.2s;
-}
-
-.action-btn:hover {
-  background: #6d6f78;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .action-btn.off {
-  background: #da373c; /* OFFの時は赤色 */
+  background: #da373c; /* OFFのときは赤色 */
 }
 
 /* 右側用参加者リスト */
