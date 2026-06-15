@@ -1,4 +1,3 @@
-// カメラ・マイクのストリームを取得する関数
 export async function getLocalStream(cameraId = null, micId = null) {
   const constraints = {
     audio: micId ? { deviceId: { exact: micId } } : true,
@@ -34,7 +33,6 @@ export async function getLocalStream(cameraId = null, micId = null) {
   return await navigator.mediaDevices.getUserMedia(constraints);
 }
 
-// 利用可能なデバイス一覧をセレクトボックスに反映する関数
 export async function updateDeviceList() {
   const cameraSelect = document.getElementById("cameraSelect");
   const micSelect = document.getElementById("micSelect");
