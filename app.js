@@ -1,13 +1,13 @@
-import { joinRoom, listenParticipants, myId } from "./room.js";
+import { joinRoom, listenParticipants, myId, updateMyName } from "./room.js";
 import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 let localStream = null;
 
+// 要素の取得
 const joinScreen = document.getElementById("joinScreen");
 const roomScreen = document.getElementById("roomScreen");
 const myPreviewVideo = document.getElementById("myPreviewVideo");
-const previewFallback = document.getElementById("previewFallback");
 const cameraSelect = document.getElementById("cameraSelect");
 const micSelect = document.getElementById("micSelect");
 const initCameraToggle = document.getElementById("initCameraToggle");
@@ -18,179 +18,131 @@ const myLocalVideo = document.getElementById("myLocalVideo");
 const myLocalName = document.getElementById("myLocalName");
 const participantList = document.getElementById("participantList");
 const videoGrid = document.getElementById("videoGrid");
-
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
-
 const appLayout = document.getElementById("appLayout");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
 
-// 1. 【起動時初期化】
+// 設定モーダル関連
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsModal = document.getElementById("settingsModal");
+const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+const newNameInput = document.getElementById("newNameInput");
+const updateNameBtn = document.getElementById("updateNameBtn");
+
+// 1. 初期化
 async function init() {
   try {
     localStream = await getLocalStream();
     myPreviewVideo.srcObject = localStream;
-
-    // iPad対策：認識完了まで少し待つ
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(r => setTimeout(r, 200));
     await updateDeviceList();
-  } catch (error) {
-    console.error("初期デバイス取得エラー:", error);
-    alert("カメラ・マイクの利用を許可してください。");
-  }
+  } catch (e) { alert("カメラ許可が必要です"); }
 }
 
-// 2. デバイス変更処理
-async function handleDeviceChange() {
-  if (!localStream) return;
-  localStream.getTracks().forEach(track => track.stop());
+// 2. 設定モーダルの制御
+settingsBtn.addEventListener("click", () => settingsModal.style.display = "flex");
+closeSettingsBtn.addEventListener("click", () => settingsModal.style.display = "none");
 
-  try {
-    localStream = await getLocalStream(cameraSelect.value, micSelect.value);
-    myPreviewVideo.srcObject = localStream;
-    toggleTracksByCheckbox();
-  } catch (e) {
-    console.error("デバイス切り替え失敗:", e);
-  }
-}
-
-cameraSelect.addEventListener("change", handleDeviceChange);
-micSelect.addEventListener("change", handleDeviceChange);
-
-// 3. 入室前チェックボックスのON/OFF制御
-function toggleTracksByCheckbox() {
-  if (!localStream) return;
-  
-  const videoTrack = localStream.getVideoTracks()[0];
-  const audioTrack = localStream.getAudioTracks()[0];
-
-  if (videoTrack) {
-    videoTrack.enabled = initCameraToggle.checked;
-    myPreviewVideo.style.display = initCameraToggle.checked ? "block" : "none";
-    previewFallback.style.display = initCameraToggle.checked ? "none" : "block";
-  }
-  if (audioTrack) {
-    audioTrack.enabled = initMicToggle.checked;
-  }
-}
-
-initCameraToggle.addEventListener("change", toggleTracksByCheckbox);
-initMicToggle.addEventListener("change", toggleTracksByCheckbox);
-
-// 4. 通話中のカメラ・マイクボタン制御（自分用）
-myCamBtn.addEventListener("click", () => {
-  if (!localStream) return;
-  const videoTrack = localStream.getVideoTracks()[0];
-  if (videoTrack) {
-    videoTrack.enabled = !videoTrack.enabled;
-    myCamBtn.classList.toggle("on", videoTrack.enabled);
-  }
-});
-
-myMicBtn.addEventListener("click", () => {
-  if (!localStream) return;
-  const audioTrack = localStream.getAudioTracks()[0];
-  if (audioTrack) {
-    audioTrack.enabled = !audioTrack.enabled;
-    myMicBtn.classList.toggle("on", audioTrack.enabled);
-  }
-});
-
-// 5. レイアウトの2パターン切り替え処理
-layoutToggleBtn.addEventListener("click", () => {
-  if (appLayout.classList.contains("layout-default")) {
-    appLayout.classList.remove("layout-default");
-    appLayout.classList.add("layout-sidebar");
+// 3. テーマ切り替え
+themeToggleBtn.addEventListener("click", () => {
+  const isDark = document.body.classList.contains("dark-theme");
+  if (isDark) {
+    document.body.classList.replace("dark-theme", "light-theme");
+    themeToggleBtn.textContent = "ダークモードに切替";
   } else {
-    appLayout.classList.remove("layout-sidebar");
-    appLayout.classList.add("layout-default");
+    document.body.classList.replace("light-theme", "dark-theme");
+    themeToggleBtn.textContent = "ライトモードに切替";
   }
 });
 
-// 6. 【入室ボタンクリック時】
+// 4. 名前変更処理
+updateNameBtn.addEventListener("click", async () => {
+  const newName = newNameInput.value.trim();
+  if (!newName) return;
+  await updateMyName(newName);
+  myLocalName.textContent = `${newName} (あなた)`;
+  newNameInput.value = "";
+  alert("名前を更新しました");
+});
+
+// 5. レイアウト切り替え
+layoutToggleBtn.addEventListener("click", () => {
+  appLayout.classList.toggle("layout-default");
+  appLayout.classList.toggle("layout-sidebar");
+});
+
+// 6. 入室処理
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
-  if (!name) return alert("名前を入力してください。");
+  if (!name) return alert("名前を入力してください");
 
-  toggleTracksByCheckbox();
+  // トラック状態の初期反映
+  const videoTrack = localStream.getVideoTracks()[0];
+  const audioTrack = localStream.getAudioTracks()[0];
+  if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
+  if (audioTrack) audioTrack.enabled = initMicToggle.checked;
 
   myCamBtn.classList.toggle("on", initCameraToggle.checked);
   myMicBtn.classList.toggle("on", initMicToggle.checked);
 
   await joinRoom(name);
-
   joinScreen.style.display = "none";
   roomScreen.style.display = "flex";
-
   myLocalVideo.srcObject = localStream;
   myLocalName.textContent = `${name} (あなた)`;
 
-  // 参加者データのリアルタイム監視
   listenParticipants((participants) => {
-    // 画面のテキスト一覧をいったんリセット
     participantList.innerHTML = "";
-    
-    // ★【重要】データベース（participants）から消えた古い人がいたら、WebRTCの接続を閉じ、ビデオカードも即座に削除する
-    for (const peerId in peerConnections) {
-      if (!participants[peerId]) {
-        closeP2P(peerId);
-        removeVideoCard(peerId);
+    for (const id in peerConnections) {
+      if (!participants[id]) {
+        closeP2P(id);
+        const card = document.getElementById(`card-${id}`);
+        if (card) card.remove();
       }
     }
-
-    // 現在データベースに存在する人のみ一覧に再描画する
-    for (const peerId in participants) {
-      const peerName = participants[peerId].name;
-      
+    for (const id in participants) {
+      const p = participants[id];
       const li = document.createElement("li");
-      li.textContent = peerName + (peerId === myId ? " (あなた)" : "");
+      li.textContent = p.name + (id === myId ? " (あなた)" : "");
       participantList.appendChild(li);
 
-      // 新しい人が入ってきた場合のみP2P接続を開始
-      if (peerId !== myId && !peerConnections[peerId]) {
-        startP2P(peerId, localStream, (id, remoteStream) => {
-          addVideoCard(id, peerName, remoteStream);
+      if (id !== myId && !peerConnections[id]) {
+        startP2P(id, localStream, (peerId, remoteStream) => {
+          addVideoCard(peerId, p.name, remoteStream);
         });
+      }
+      // 名前が更新された場合への対応
+      const existingCard = document.getElementById(`card-${id}`);
+      if (existingCard) {
+        existingCard.querySelector(".videoName").textContent = p.name;
       }
     }
   });
 });
 
-// 7. ビデオカードの動的生成
+// 自分のカメラ・マイクボタン
+myCamBtn.addEventListener("click", () => {
+  const t = localStream.getVideoTracks()[0];
+  if (t) { t.enabled = !t.enabled; myCamBtn.classList.toggle("on", t.enabled); }
+});
+myMicBtn.addEventListener("click", () => {
+  const t = localStream.getAudioTracks()[0];
+  if (t) { t.enabled = !t.enabled; myMicBtn.classList.toggle("on", t.enabled); }
+});
+
 function addVideoCard(id, name, stream) {
   if (document.getElementById(`card-${id}`)) return;
-
   const card = document.createElement("div");
   card.className = "videoCard";
   card.id = `card-${id}`;
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "video-wrapper";
-
-  const video = document.createElement("video");
-  video.autoplay = true;
-  video.playsInline = true;
-  video.srcObject = stream;
-  wrapper.appendChild(video);
-
-  const controlBar = document.createElement("div");
-  controlBar.className = "videoControlBar";
-
-  const nameDiv = document.createElement("div");
-  nameDiv.className = "videoName";
-  nameDiv.textContent = name;
-
-  controlBar.appendChild(nameDiv);
-  
-  card.appendChild(wrapper);
-  card.appendChild(controlBar);
+  card.innerHTML = `
+    <div class="video-wrapper"><video autoplay playsinline></video></div>
+    <div class="videoControlBar"><span class="videoName">${name}</span></div>
+  `;
+  card.querySelector("video").srcObject = stream;
   videoGrid.appendChild(card);
-}
-
-// ビデオカードの削除
-function removeVideoCard(id) {
-  const card = document.getElementById(`card-${id}`);
-  if (card) card.remove();
 }
 
 init();
