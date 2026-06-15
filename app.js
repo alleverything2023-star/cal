@@ -34,47 +34,58 @@ const themeToggleBtn = document.getElementById("themeToggleBtn");
 const newNameInput = document.getElementById("newNameInput");
 const updateNameBtn = document.getElementById("updateNameBtn");
 
-// タブ・チャット関連の要素
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatMessages = document.getElementById("chatMessages");
 
+// ビデオ要素にストリームを安全に設定し、iPad用に再生を強制するヘルパー
+function setVideoSrc(videoElement, stream) {
+  if (!videoElement) return;
+  videoElement.srcObject = stream;
+  // iOS/iPadOSの自動再生制限対策
+  videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
+}
+
 async function init() {
   try {
     localStream = await getLocalStream();
     if (myPreviewVideo) {
-      myPreviewVideo.srcObject = localStream;
+      setVideoSrc(myPreviewVideo, localStream);
     }
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 300)); // iPadの処理速度を考慮し少し長めに待機
     await updateDeviceList();
   } catch (e) { 
     console.error("初期化エラー:", e);
-    alert("カメラ許可が必要です"); 
+    alert("カメラ・マイクの起動に失敗しました。iPadの設定＞Safari＞カメラのアクセス権が「許可」になっているか確認してください。"); 
   }
 }
 
 async function handleDeviceChange() {
   if (!localStream) return;
   
+  // iPad対策：トラックの停止と参照解除を完全に一貫して行う
   localStream.getTracks().forEach(track => { 
     try { track.stop(); } catch(err) { console.error(err); }
-    localStream.removeTrack(track); 
   });
+  localStream = null;
 
   try {
-    const newStream = await getLocalStream(cameraSelect.value, micSelect.value);
+    const targetCam = (cameraSelect && cameraSelect.value) ? cameraSelect.value : null;
+    const targetMic = (micSelect && micSelect.value) ? micSelect.value : null;
+    
+    const newStream = await getLocalStream(targetCam, targetMic);
     localStream = newStream;
     const newVideoTrack = localStream.getVideoTracks()[0];
     const newAudioTrack = localStream.getAudioTracks()[0];
     
     if (!isJoined) {
-      if (myPreviewVideo) myPreviewVideo.srcObject = localStream;
+      if (myPreviewVideo) setVideoSrc(myPreviewVideo, localStream);
       if (newVideoTrack && initCameraToggle) newVideoTrack.enabled = initCameraToggle.checked;
       if (newAudioTrack && initMicToggle) newAudioTrack.enabled = initMicToggle.checked;
     } else {
-      if (myLocalVideo) myLocalVideo.srcObject = localStream;
+      if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
       if (newVideoTrack && myCamBtn) newVideoTrack.enabled = myCamBtn.classList.contains("on");
       if (newAudioTrack && myMicBtn) newAudioTrack.enabled = myMicBtn.classList.contains("on");
       
@@ -93,7 +104,7 @@ async function handleDeviceChange() {
       }
     }
   } catch (e) { 
-    console.error("デバイスの切り替えに失敗しました:", e); 
+    console.error("デバイス切り替え失敗:", e); 
   }
 }
 
@@ -165,7 +176,7 @@ if (joinButton) {
     isJoined = true;
     if (joinScreen) joinScreen.style.display = "none";
     if (roomScreen) roomScreen.style.display = "flex";
-    if (myLocalVideo) myLocalVideo.srcObject = localStream;
+    if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
     if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
 
     listenParticipants((participants) => {
@@ -240,7 +251,10 @@ function addVideoCard(id, name, stream) {
       </div>
     </div>
   `;
-  card.querySelector("video").srcObject = stream;
+  
+  const targetVideo = card.querySelector("video");
+  setVideoSrc(targetVideo, stream);
+  
   videoGrid.appendChild(card);
   updateGridClass();
 
@@ -258,7 +272,7 @@ function addVideoCard(id, name, stream) {
   }, 500);
 }
 
-// タブ切り替えロジック
+// タブ切り替え
 tabButtons.forEach(button => {
   button.addEventListener("click", () => {
     tabButtons.forEach(btn => btn.classList.remove("active"));
@@ -278,16 +292,14 @@ tabButtons.forEach(button => {
   });
 });
 
-// チャット送信処理
+// チャット
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
   if (!text) return;
 
-  // 自分の画面に描画
   appendMessage(currentUserName, text, true);
 
-  // WebRTC経由で相手全員にブロードキャスト送信
   broadcastMessage({
     sender: currentUserName,
     text: text
@@ -322,7 +334,6 @@ function scrollToBottom() {
   if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 相手からWebRTCデータチャンネル経由でメッセージを受け取った時のイベントを登録
 registerOnMessage((sender, text) => {
   appendMessage(sender, text, false);
 });
