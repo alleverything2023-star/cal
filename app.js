@@ -26,7 +26,10 @@ async function init() {
     localStream = await getLocalStream();
     myPreviewVideo.srcObject = localStream;
 
-    // 成功したらデバイス一覧の選択肢を生成（これでオプションが空にならなくなります）
+    // ★iPad対策：カメラが完全に起動するまでわずかに（0.2秒）待つ
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // デバイス一覧の選択肢を生成
     await updateDeviceList();
   } catch (error) {
     console.error("初期デバイス取得エラー:", error);
