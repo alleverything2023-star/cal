@@ -4,11 +4,6 @@ export const peerConnections = {};
 const dataChannels = {};
 let onMessageCallback = null;
 
-// アプリ起動時にシグナリングの受信待機を自動開始
-listenSignalingMessage((fromPeerId, signalingData) => {
-  handleSignalingMessage(fromPeerId, signalingData);
-});
-
 export function registerOnMessage(callback) {
   onMessageCallback = callback;
 }
@@ -23,76 +18,16 @@ export function broadcastMessage(messageData) {
   }
 }
 
-// 接続の初期化コアロジック
-export function startP2P(peerId, localStream = null) {
-  if (peerConnections[peerId]) return;
-
-  // 1. ローカルストリームの安全な取得（なければapp.jsから持ってくる）
-  let currentStream = localStream;
-  if (!currentStream && window.getGlobalLocalStream) {
-    currentStream = window.getGlobalLocalStream();
-  }
-
-  console.log(`[WebRTC] 接続を初期化します: 相手=${peerId}`);
-
-  // 2. PeerConnectionの作成
-  const pc = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-  });
-  peerConnections[peerId] = pc;
-
-  // 3. 自分のトラックを追加
-  if (currentStream) {
-    currentStream.getTracks().forEach(track => pc.addTrack(track, currentStream));
-  }
-
-  // 4. 相手の映像トラックが届いた時の処理（常にグローバル関数経由で画面に反映）
-  pc.ontrack = (e) => {
-    console.log(`[WebRTC] 相手の映像ストリームを受信しました: ${peerId}`);
-    if (window.handleRemoteStreamGlobal) {
-      window.handleRemoteStreamGlobal(peerId, e.streams[0]);
-    }
-  };
-
-  // 経路が見つかったら送信
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      sendSignalingMessage(peerId, { type: "candidate", candidate: e.candidate });
-    }
-  };
-
-  // 相手からデータチャネルが開かれた時（Answer側がここを通る）
-  pc.ondatachannel = (e) => {
-    console.log(`[WebRTC] 相手が作成したDataChannelを検知しました: ${peerId}`);
-    setupDataChannel(peerId, e.channel);
-  };
-
-  // 5. ID比較による衝突回避ルール（小さいIDの人がOfferを作る）
-  if (myId < peerId) {
-    console.log(`[WebRTC] 自分(${myId})がOffer側としてDataChannelを作成します -> ${peerId}`);
-    const dc = pc.createDataChannel("chatChannel");
-    setupDataChannel(peerId, dc);
-
-    pc.createOffer()
-      .then(offer => pc.setLocalDescription(offer))
-      .then(() => {
-        sendSignalingMessage(peerId, { type: "offer", sdp: pc.localDescription });
-      })
-      .catch(err => console.error("Offer作成失敗:", err));
-  } else {
-    console.log(`[WebRTC] 自分(${myId})はAnswer側です。相手からのOfferを待機します -> ${peerId}`);
-  }
-}
-
+// 共通のデータチャネル（チャット）設定関数
 function setupDataChannel(peerId, dc) {
   dataChannels[peerId] = dc;
 
-  dc.onopen = () => console.log(`🎉 チャットのDataChannel通信が完全に確立しました: ${peerId}`);
+  dc.onopen = () => console.log(`[DataChannel] 接続完了: ${peerId}`);
   dc.onclose = () => {
-    console.log(`DataChannel 切断: ${peerId}`);
+    console.log(`[DataChannel] 切断: ${peerId}`);
     delete dataChannels[peerId];
   };
-  dc.onerror = (err) => console.error("DataChannel エラー:", err);
+  dc.onerror = (err) => console.error("[DataChannel] エラー:", err);
 
   dc.onmessage = (e) => {
     try {
@@ -101,19 +36,78 @@ function setupDataChannel(peerId, dc) {
         onMessageCallback(data.sender, data.text);
       }
     } catch (err) {
-      console.error("データ解析失敗:", err);
+      console.error("[DataChannel] データパース失敗:", err);
     }
   };
 }
 
-/**
- * Firebase経由で届いたシグナリングを処理
- */
+// P2P接続の初期化・開始関数
+export function startP2P(peerId, localStream = null) {
+  if (peerConnections[peerId]) return;
+
+  // app.jsに紐づいているローカルストリームを安全に取得
+  let currentStream = localStream;
+  if (!currentStream && window.getGlobalLocalStream) {
+    currentStream = window.getGlobalLocalStream();
+  }
+
+  console.log(`[WebRTC] 接続を初期化します: ターゲット=${peerId}`);
+
+  const pc = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  });
+  peerConnections[peerId] = pc;
+
+  // 自分のカメラ・マイクのトラックを追加
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => pc.addTrack(track, currentStream));
+  }
+
+  // 相手の映像が届いたときの処理
+  pc.ontrack = (e) => {
+    console.log(`[WebRTC] 相手のストリームを受信しました: ${peerId}`);
+    if (window.handleRemoteStreamGlobal) {
+      window.handleRemoteStreamGlobal(peerId, e.streams[0]);
+    }
+  };
+
+  // 経路候補を相手にシグナリング送信
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      sendSignalingMessage(peerId, { type: "candidate", candidate: e.candidate.toJSON() });
+    }
+  };
+
+  // 相手が開いたDataChannelを検知したときの処理（Answer側がここを通る）
+  pc.ondatachannel = (e) => {
+    console.log(`[WebRTC] 相手からのDataChannelオープンを検知: ${peerId}`);
+    setupDataChannel(peerId, e.channel);
+  };
+
+  // 衝突回避ルール：IDが小さい方がOffer側（発信）
+  if (myId < peerId) {
+    console.log(`[WebRTC] 自分(${myId})がOffer側になります -> ${peerId}`);
+    const dc = pc.createDataChannel("chatChannel");
+    setupDataChannel(peerId, dc);
+
+    pc.createOffer()
+      .then(offer => pc.setLocalDescription(offer))
+      .then(() => {
+        sendSignalingMessage(peerId, { type: "offer", sdp: pc.localDescription.sdp });
+      })
+      .catch(err => console.error("[WebRTC] Offer作成失敗:", err));
+  } else {
+    console.log(`[WebRTC] 自分(${myId})はAnswer側として待機します -> ${peerId}`);
+  }
+}
+
+// Firebaseからシグナリングメッセージが届いたときの処理（非同期関数）
 async function handleSignalingMessage(fromPeerId, data) {
   let pc = peerConnections[fromPeerId];
   
-  // 相手からOfferが届いた時点でPCがなければ、すぐ作成
+  // 相手からOfferが届いたときにPCがまだなければ、Answer側としてインスタンスを作成
   if (!pc && data.type === "offer") {
+    console.log(`[シグナリング] 新しいOfferを検知したため、Answer側として初期化します: ${fromPeerId}`);
     startP2P(fromPeerId);
     pc = peerConnections[fromPeerId];
   }
@@ -122,19 +116,31 @@ async function handleSignalingMessage(fromPeerId, data) {
 
   try {
     if (data.type === "offer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: data.sdp }));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      sendSignalingMessage(fromPeerId, { type: "answer", sdp: pc.localDescription });
-    } else if (data.type === "answer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-    } else if (data.type === "candidate") {
+      sendSignalingMessage(fromPeerId, { type: "answer", sdp: pc.localDescription.sdp });
+      console.log(`[シグナリング] Offerに対してAnswerを送信しました -> ${fromPeerId}`);
+    } 
+    else if (data.type === "answer") {
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: data.sdp }));
+      console.log(`[シグナリング] Answerを受信し、リモート設定を完了しました -> ${fromPeerId}`);
+    } 
+    else if (data.type === "candidate") {
       await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      console.log(`[シグナリング] ICE Candidateを適用しました -> ${fromPeerId}`);
     }
   } catch (err) {
-    console.error("シグナリング処理エラー:", err);
+    console.error("[シグナリング] 処理エラー:", err);
   }
 }
+
+// 【超重要】すべての関数が定義し終わった「一番下」でリスナーを起動する（即死バグ回避）
+listenSignalingMessage((fromPeerId, signalingData) => {
+  if (fromPeerId && signalingData) {
+    handleSignalingMessage(fromPeerId, signalingData);
+  }
+});
 
 export function closeP2P(peerId) {
   if (dataChannels[peerId]) {
