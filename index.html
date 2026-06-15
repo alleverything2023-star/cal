@@ -45,34 +45,40 @@
   </div>
 
   <div id="roomScreen" style="display: none;">
-    <div class="app-container">
+    <div class="app-layout">
       
-      <div id="leftContainer">
-        <div id="videoGrid">
-          <div class="videoCard" id="myVideoCard">
-            <div class="video-wrapper">
-              <video id="myLocalVideo" autoplay playsinline muted></video>
-            </div>
-            <div class="videoControlBar">
-              <span class="videoName" id="myLocalName">あなた</span>
-              <div class="btn-group">
-                <button id="myCamBtn" class="action-btn">📷</button>
-                <button id="myMicBtn" class="action-btn">🎤</button>
+      <div class="main-content">
+        <div id="leftContainer">
+          <div id="videoGrid">
+            <div class="videoCard" id="myVideoCard">
+              <div class="video-wrapper">
+                <video id="myLocalVideo" autoplay playsinline muted></video>
               </div>
+              <div class="videoControlBar">
+                <span class="videoName" id="myLocalName">あなた</span>
+                <div class="btn-group">
+                  <button id="myCamBtn" class="action-btn">📷</button>
+                  <button id="myMicBtn" class="action-btn">🎤</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="rightContainer">
+          <div class="right-content-wrapper">
+            <h3>参加者一覧</h3>
+            <ul id="participantList"></ul>
+            
+            <div class="future-feature-space">
+              <p style="color: #666; font-size: 0.9rem;">※将来の拡張スペース（画面共有・PDFなど）</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div id="rightContainer">
-        <div class="right-content-wrapper">
-          <h3>参加者一覧</h3>
-          <ul id="participantList"></ul>
-          
-          <div class="future-feature-space">
-            <p style="color: #666; font-size: 0.9rem;">※将来の拡張スペース（画面共有・YouTube同期など）</p>
-          </div>
-        </div>
+      <div id="bottomContainer">
+        <p style="color: #555; font-size: 0.8rem;">※将来のコントロールバー・チャット入力などの追加用スペース</p>
       </div>
 
     </div>
