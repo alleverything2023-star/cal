@@ -105,7 +105,7 @@ select, input[type="text"] {
   background: #4752c4;
 }
 
-/* --- ルーム画面（上下・左右の全体レイアウト） --- */
+/* --- ルーム画面（全体レイアウト） --- */
 .app-layout {
   display: flex;
   flex-direction: column;
@@ -113,16 +113,17 @@ select, input[type="text"] {
   height: 100vh;
 }
 
-/* メイン部分（左右に分割） */
 .main-content {
   display: flex;
-  flex: 1; /* 残りの高さをすべて使う */
+  flex: 1;
   width: 100%;
   overflow: hidden;
 }
 
-/* 左画面：ビデオエリア */
-#leftContainer {
+/* ========================================== */
+/* パターン1：デフォルトレイアウト（左7 : 右3）   */
+/* ========================================== */
+.layout-default #leftContainer {
   flex: 7;
   height: 100%;
   padding: 20px;
@@ -132,8 +133,7 @@ select, input[type="text"] {
   align-items: center;
 }
 
-/* 右画面：拡張用大容量エリア */
-#rightContainer {
+.layout-default #rightContainer {
   flex: 3;
   height: 100%;
   background-color: #2b2d31;
@@ -143,6 +143,87 @@ select, input[type="text"] {
   flex-direction: column;
 }
 
+/* デフォルト時のビデオグリッド配置（等分割） */
+.layout-default #videoGrid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: 15px;
+  width: 100%;
+  height: 100%;
+  max-width: 1200px;
+}
+
+.layout-default .videoCard {
+  background-color: #2b2d31;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+  width: 100%;
+  height: calc(100% - 10px);
+  max-width: 800px;
+}
+
+.layout-default #videoGrid:has(.videoCard:nth-child(2):last-child) .videoCard {
+  width: calc(50% - 10px);
+  height: 60%;
+}
+.layout-default #videoGrid:has(.videoCard:nth-child(3):last-child) .videoCard,
+.layout-default #videoGrid:has(.videoCard:nth-child(4):last-child) .videoCard {
+  width: calc(50% - 10px);
+  height: calc(50% - 10px);
+}
+.layout-default #videoGrid:has(.videoCard:nth-child(5):not(:last-child)) .videoCard,
+.layout-default #videoGrid:has(.videoCard:nth-child(5):last-child) .videoCard {
+  width: calc(33.33% - 10px);
+  height: calc(50% - 10px);
+}
+
+/* ========================================== */
+/* パターン2：サイドバー表示（左1/5 : 右4/5）     */
+/* ========================================== */
+.layout-sidebar #leftContainer {
+  flex: 1; /* 横幅1/5 */
+  height: 100%;
+  padding: 10px;
+  background-color: #111214;
+  border-right: 1px solid #2b2d31;
+  overflow-y: auto; /* 人数が多い時に縦スクロール可能にする */
+}
+
+.layout-sidebar #rightContainer {
+  flex: 4; /* 横幅4/5（拡張メイン画面） */
+  height: 100%;
+  background-color: #2b2d31;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* サイドバー時のビデオグリッド配置（縦一列に並べる） */
+.layout-sidebar #videoGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.layout-sidebar .videoCard {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 4 / 3; /* 細いエリアでも潰れないように比率を固定 */
+  background-color: #2b2d31;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 共通パーツ */
 .right-content-wrapper {
   height: 100%;
   display: flex;
@@ -160,9 +241,9 @@ select, input[type="text"] {
   background: #313338;
 }
 
-/* 下画面：後で機能を追加できる細めの余白 */
+/* 下画面：機能ボタンを追加できる細めの余白 */
 #bottomContainer {
-  height: 50px; /* 細めの高さに固定 */
+  height: 55px;
   background-color: #1e1f22;
   border-top: 1px solid #2b2d31;
   display: flex;
@@ -171,45 +252,21 @@ select, input[type="text"] {
   padding: 0 20px;
 }
 
-/* --- ビデオグリッド：カメラ比率を維持して等分割 --- */
-#videoGrid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-content: center;
-  gap: 15px;
-  width: 100%;
-  height: 100%;
-  max-width: 1200px;
+/* レイアウト切り替えボタンの装飾 */
+.control-toggle-btn {
+  background: #4e5058;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  transition: background 0.2s;
 }
 
-.videoCard {
-  background-color: #2b2d31;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  transition: all 0.3s ease;
-  width: 100%;
-  height: calc(100% - 10px);
-  max-width: 800px;
-}
-
-/* 人数ごとのサイズ調整（等分割ロジック） */
-#videoGrid:has(.videoCard:nth-child(2):last-child) .videoCard {
-  width: calc(50% - 10px);
-  height: 60%;
-}
-#videoGrid:has(.videoCard:nth-child(3):last-child) .videoCard,
-#videoGrid:has(.videoCard:nth-child(4):last-child) .videoCard {
-  width: calc(50% - 10px);
-  height: calc(50% - 10px);
-}
-#videoGrid:has(.videoCard:nth-child(5):not(:last-child)) .videoCard,
-#videoGrid:has(.videoCard:nth-child(5):last-child) .videoCard {
-  width: calc(33.33% - 10px);
-  height: calc(50% - 10px);
+.control-toggle-btn:hover {
+  background: #6d6f78;
 }
 
 .video-wrapper {
@@ -233,13 +290,13 @@ select, input[type="text"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 4px 10px;
   background: #232428;
-  height: 50px;
+  height: 40px;
 }
 
 .videoName {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -248,25 +305,21 @@ select, input[type="text"] {
 
 .btn-group {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
-/* ★ボタンの配色変更：基本が赤（OFF）、ONクラスがつくと青（稼働中） */
 .action-btn {
-  background: #da373c; /* デフォルトは赤色 */
+  background: #da373c;
   border: none;
   color: white;
-  padding: 6px 12px;
+  padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 0.8rem;
 }
 
 .action-btn.on {
-  background: #248046; /* ON（有効）の時は緑、または #5865f2 (青) に変更可能 */
+  background: #248046;
 }
 
 /* 右側用参加者リスト */
