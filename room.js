@@ -1,5 +1,5 @@
 import { db } from "./firebase.js";
-import { ref, set, push, onChildAdded, onValue, remove, onDisconnect, get } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+import { ref, set, push, onChildAdded, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 export let myId = "user_" + Math.random().toString(36).substring(2, 9);
 export let roomParticipants = {};
@@ -7,7 +7,7 @@ export let roomParticipants = {};
 const roomId = "default_room"; 
 const participantsRef = ref(db, `rooms/${roomId}/participants`);
 const signalingRef = ref(db, `rooms/${roomId}/signaling/${myId}`);
-const chatRef = ref(db, `rooms/${roomId}/messages`); // チャット履歴の保存先
+const chatRef = ref(db, `rooms/${roomId}/messages`); 
 
 let signalingListener = null;
 
@@ -49,7 +49,7 @@ export function listenParticipants(callback) {
       roomParticipants = data;
     } else {
       roomParticipants = {};
-      // 【履歴削除ロジック】参加者が完全に0人になったら、チャット履歴を自動で綺麗に削除する
+      // 参加者が完全に0人になったら、チャット履歴を自動で綺麗に削除する
       await remove(chatRef);
       console.log("部屋が空になったため、チャット履歴を消去しました。");
     }
@@ -65,7 +65,7 @@ export async function updateMyName(newName) {
 }
 
 /**
- * チャットメッセージをFirebaseに送信する関数（DataChannelではなく安全なFirebase経由に変更）
+ * チャットメッセージをFirebaseに送信する関数
  */
 export function sendChatMessageToFirebase(sender, text) {
   const newMessageRef = push(chatRef);
@@ -112,7 +112,7 @@ export function listenSignalingMessage(callback) {
       if (signalingListener) {
         signalingListener(msg.from, msg.data);
       }
-      remove(snapshot.ref); // 処理したシグナリングは即座に削除
+      remove(snapshot.ref); 
     }
   });
 }
