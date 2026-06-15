@@ -44,30 +44,44 @@ const chatMessages = document.getElementById("chatMessages");
 async function init() {
   try {
     localStream = await getLocalStream();
-    myPreviewVideo.srcObject = localStream;
+    if (myPreviewVideo) {
+      myPreviewVideo.srcObject = localStream;
+    }
     await new Promise(r => setTimeout(r, 200));
     await updateDeviceList();
-  } catch (e) { alert("カメラ許可が必要です"); }
+  } catch (e) { 
+    console.error("初期化エラー:", e);
+    alert("カメラ許可が必要です"); 
+  }
 }
 
 async function handleDeviceChange() {
   if (!localStream) return;
-  localStream.getTracks().forEach(track => { track.stop(); localStream.removeTrack(track); });
+  
+  // 既存のトラックを安全に停止
+  localStream.getTracks().forEach(track => { 
+    try { track.stop(); } catch(err) { console.error(err); }
+    localStream.removeTrack(track); 
+  });
+
   try {
     const newStream = await getLocalStream(cameraSelect.value, micSelect.value);
     localStream = newStream;
     const newVideoTrack = localStream.getVideoTracks()[0];
     const newAudioTrack = localStream.getAudioTracks()[0];
+    
     if (!isJoined) {
-      myPreviewVideo.srcObject = localStream;
-      if (newVideoTrack) newVideoTrack.enabled = initCameraToggle.checked;
-      if (newAudioTrack) newAudioTrack.enabled = initMicToggle.checked;
+      if (myPreviewVideo) myPreviewVideo.srcObject = localStream;
+      if (newVideoTrack && initCameraToggle) newVideoTrack.enabled = initCameraToggle.checked;
+      if (newAudioTrack && initMicToggle) newAudioTrack.enabled = initMicToggle.checked;
     } else {
-      myLocalVideo.srcObject = localStream;
-      if (newVideoTrack) newVideoTrack.enabled = myCamBtn.classList.contains("on");
-      if (newAudioTrack) newAudioTrack.enabled = myMicBtn.classList.contains("on");
+      if (myLocalVideo) myLocalVideo.srcObject = localStream;
+      if (newVideoTrack && myCamBtn) newVideoTrack.enabled = myCamBtn.classList.contains("on");
+      if (newAudioTrack && myMicBtn) newAudioTrack.enabled = myMicBtn.classList.contains("on");
+      
       for (const id in peerConnections) {
         const pc = peerConnections[id];
+        if (!pc) continue;
         const senders = pc.getSenders();
         senders.forEach(sender => {
           if (sender.track && sender.track.kind === "video" && newVideoTrack) {
@@ -79,97 +93,129 @@ async function handleDeviceChange() {
         });
       }
     }
-  } catch (e) { console.error("デバイスの切り替えに失敗しました:", e); }
+  } catch (e) { 
+    console.error("デバイスの切り替えに失敗しました:", e); 
+  }
 }
 
-cameraSelect.addEventListener("change", handleDeviceChange);
-micSelect.addEventListener("change", handleDeviceChange);
-settingsBtn.addEventListener("click", () => settingsModal.style.display = "flex");
-closeSettingsBtn.addEventListener("click", () => settingsModal.style.display = "none");
+if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
+if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
 
-themeToggleBtn.addEventListener("click", () => {
-  const isDark = document.body.classList.contains("dark-theme");
-  if (isDark) {
-    document.body.classList.replace("dark-theme", "light-theme");
-    themeToggleBtn.textContent = "ダークモードに切替";
-  } else {
-    document.body.classList.replace("light-theme", "dark-theme");
-    themeToggleBtn.textContent = "ライトモードに切替";
-  }
-});
+if (settingsBtn) settingsBtn.addEventListener("click", () => { if (settingsModal) settingsModal.style.display = "flex"; });
+if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", () => { if (settingsModal) settingsModal.style.display = "none"; });
 
-updateNameBtn.addEventListener("click", async () => {
-  const newName = newNameInput.value.trim();
-  if (!newName) return;
-  await updateMyName(newName);
-  myLocalName.textContent = `${newName} (あなた)`;
-  currentUserName = newName;
-  newNameInput.value = "";
-  alert("名前を更新しました");
-});
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const isDark = document.body.classList.contains("dark-theme");
+    if (isDark) {
+      document.body.classList.replace("dark-theme", "light-theme");
+      themeToggleBtn.textContent = "ダークモードに切替";
+    } else {
+      document.body.classList.replace("light-theme", "dark-theme");
+      themeToggleBtn.textContent = "ライトモードに切替";
+    }
+  });
+}
 
-layoutToggleBtn.addEventListener("click", () => {
-  appLayout.classList.toggle("layout-default");
-  appLayout.classList.toggle("layout-sidebar");
-});
+if (updateNameBtn) {
+  updateNameBtn.addEventListener("click", async () => {
+    if (!newNameInput) return;
+    const newName = newNameInput.value.trim();
+    if (!newName) return;
+    await updateMyName(newName);
+    if (myLocalName) myLocalName.textContent = `${newName} (あなた)`;
+    currentUserName = newName;
+    newNameInput.value = "";
+    alert("名前を更新しました");
+  });
+}
+
+if (layoutToggleBtn) {
+  layoutToggleBtn.addEventListener("click", () => {
+    if (appLayout) {
+      appLayout.classList.toggle("layout-default");
+      appLayout.classList.toggle("layout-sidebar");
+    }
+  });
+}
 
 function updateGridClass() {
+  if (!videoGrid) return;
   const cardCount = videoGrid.querySelectorAll(".videoCard").length;
   videoGrid.className = "count-" + (cardCount <= 4 ? cardCount : "many");
 }
 
-joinButton.addEventListener("click", async () => {
-  const name = nameInput.value.trim();
-  if (!name) return alert("名前を入力してください");
-  currentUserName = name;
-  const videoTrack = localStream.getVideoTracks()[0];
-  const audioTrack = localStream.getAudioTracks()[0];
-  if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
-  if (audioTrack) audioTrack.enabled = initMicToggle.checked;
+if (joinButton) {
+  joinButton.addEventListener("click", async () => {
+    if (!nameInput || !localStream) return;
+    const name = nameInput.value.trim();
+    if (!name) return alert("名前を入力してください");
+    currentUserName = name;
+    
+    const videoTrack = localStream.getVideoTracks()[0];
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (videoTrack && initCameraToggle) videoTrack.enabled = initCameraToggle.checked;
+    if (audioTrack && initMicToggle) audioTrack.enabled = initMicToggle.checked;
 
-  myCamBtn.classList.toggle("on", initCameraToggle.checked);
-  myCamStatus.classList.toggle("on", initCameraToggle.checked);
-  myMicBtn.classList.toggle("on", initMicToggle.checked);
-  myMicStatus.classList.toggle("on", initMicToggle.checked);
+    if (myCamBtn && initCameraToggle) myCamBtn.classList.toggle("on", initCameraToggle.checked);
+    if (myCamStatus && initCameraToggle) myCamStatus.classList.toggle("on", initCameraToggle.checked);
+    if (myMicBtn && initMicToggle) myMicBtn.classList.toggle("on", initMicToggle.checked);
+    if (myMicStatus && initMicToggle) myMicStatus.classList.toggle("on", initMicToggle.checked);
 
-  await joinRoom(name);
-  isJoined = true;
-  joinScreen.style.display = "none";
-  roomScreen.style.display = "flex";
-  myLocalVideo.srcObject = localStream;
-  myLocalName.textContent = `${name} (あなた)`;
+    await joinRoom(name);
+    isJoined = true;
+    if (joinScreen) joinScreen.style.display = "none";
+    if (roomScreen) roomScreen.style.display = "flex";
+    if (myLocalVideo) myLocalVideo.srcObject = localStream;
+    if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
 
-  listenParticipants((participants) => {
-    for (const id in peerConnections) {
-      if (!participants[id]) {
-        closeP2P(id);
-        const card = document.getElementById(`card-${id}`);
-        if (card) { card.remove(); updateGridClass(); }
+    listenParticipants((participants) => {
+      for (const id in peerConnections) {
+        if (!participants[id]) {
+          closeP2P(id);
+          const card = document.getElementById(`card-${id}`);
+          if (card) { card.remove(); updateGridClass(); }
+        }
       }
-    }
-    for (const id in participants) {
-      const p = participants[id];
-      if (id !== myId && !peerConnections[id]) {
-        startP2P(id, localStream, (peerId, remoteStream) => { addVideoCard(peerId, p.name, remoteStream); });
+      for (const id in participants) {
+        const p = participants[id];
+        if (id !== myId && !peerConnections[id]) {
+          startP2P(id, localStream, (peerId, remoteStream) => { addVideoCard(peerId, p.name, remoteStream); });
+        }
+        const existingCard = document.getElementById(`card-${id}`);
+        if (existingCard) { existingCard.querySelector(".videoName").textContent = p.name; }
       }
-      const existingCard = document.getElementById(`card-${id}`);
-      if (existingCard) { existingCard.querySelector(".videoName").textContent = p.name; }
-    }
-    updateGridClass();
+      updateGridClass();
+    });
   });
-});
+}
 
-myCamBtn.addEventListener("click", () => {
-  const t = localStream.getVideoTracks()[0];
-  if (t) { t.enabled = !t.enabled; myCamBtn.classList.toggle("on", t.enabled); myCamStatus.classList.toggle("on", t.enabled); }
-});
-myMicBtn.addEventListener("click", () => {
-  const t = localStream.getAudioTracks()[0];
-  if (t) { t.enabled = !t.enabled; myMicBtn.classList.toggle("on", t.enabled); myMicStatus.classList.toggle("on", t.enabled); }
-});
+if (myCamBtn) {
+  myCamBtn.addEventListener("click", () => {
+    if (!localStream) return;
+    const t = localStream.getVideoTracks()[0];
+    if (t) { 
+      t.enabled = !t.enabled; 
+      myCamBtn.classList.toggle("on", t.enabled); 
+      if (myCamStatus) myCamStatus.classList.toggle("on", t.enabled); 
+    }
+  });
+}
+
+if (myMicBtn) {
+  myMicBtn.addEventListener("click", () => {
+    if (!localStream) return;
+    const t = localStream.getAudioTracks()[0];
+    if (t) { 
+      t.enabled = !t.enabled; 
+      myMicBtn.classList.toggle("on", t.enabled); 
+      if (myMicStatus) myMicStatus.classList.toggle("on", t.enabled); 
+    }
+  });
+}
 
 function addVideoCard(id, name, stream) {
-  if (document.getElementById(`card-${id}`)) return;
+  if (!videoGrid || document.getElementById(`card-${id}`)) return;
   const card = document.createElement("div");
   card.className = "videoCard";
   card.id = `card-${id}`;
@@ -201,11 +247,16 @@ function addVideoCard(id, name, stream) {
 
   const camIndicator = card.querySelector(`#camStatus-${id}`);
   const micIndicator = card.querySelector(`#micStatus-${id}`);
-  setInterval(() => {
+  const intervalId = setInterval(() => {
+    // カードが消えていたらポーリングを停止
+    if (!document.getElementById(`card-${id}`)) {
+      clearInterval(intervalId);
+      return;
+    }
     const vTrack = stream.getVideoTracks()[0];
     const aTrack = stream.getAudioTracks()[0];
-    if (vTrack) camIndicator.classList.toggle("on", vTrack.enabled && !vTrack.muted);
-    if (aTrack) micIndicator.classList.toggle("on", aTrack.enabled && !aTrack.muted);
+    if (vTrack && camIndicator) camIndicator.classList.toggle("on", vTrack.enabled && !vTrack.muted);
+    if (aTrack && micIndicator) micIndicator.classList.toggle("on", aTrack.enabled && !aTrack.muted);
   }, 500);
 }
 
@@ -229,8 +280,9 @@ tabButtons.forEach(button => {
   });
 });
 
-// チャット送信・表示処理（ローカルモック）
+// チャット送信・表示処理
 function sendChatMessage() {
+  if (!chatInput) return;
   const text = chatInput.value.trim();
   if (!text) return;
 
@@ -240,6 +292,7 @@ function sendChatMessage() {
 }
 
 function appendMessage(sender, text, isMe = false) {
+  if (!chatMessages) return;
   const messageWrapper = document.createElement("div");
   messageWrapper.style.display = "flex";
   messageWrapper.style.flexDirection = "column";
@@ -260,14 +313,16 @@ function appendMessage(sender, text, isMe = false) {
 }
 
 function scrollToBottom() {
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-chatSendBtn.addEventListener("click", sendChatMessage);
-chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.isComposing) {
-    sendChatMessage();
-  }
-});
+if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
+if (chatInput) {
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      sendChatMessage();
+    }
+  });
+}
 
 init();
