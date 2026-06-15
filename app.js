@@ -4,6 +4,7 @@ import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 let localStream = null;
 let isJoined = false;
+let currentUserName = "あなた";
 
 const joinScreen = document.getElementById("joinScreen");
 const roomScreen = document.getElementById("roomScreen");
@@ -33,6 +34,13 @@ const themeToggleBtn = document.getElementById("themeToggleBtn");
 const newNameInput = document.getElementById("newNameInput");
 const updateNameBtn = document.getElementById("updateNameBtn");
 
+// タブ・チャット関連の要素
+const tabButtons = document.querySelectorAll(".tab-btn");
+const tabContents = document.querySelectorAll(".tab-content");
+const chatInput = document.getElementById("chatInput");
+const chatSendBtn = document.getElementById("chatSendBtn");
+const chatMessages = document.getElementById("chatMessages");
+
 async function init() {
   try {
     localStream = await getLocalStream();
@@ -44,33 +52,23 @@ async function init() {
 
 async function handleDeviceChange() {
   if (!localStream) return;
-
-  localStream.getTracks().forEach(track => {
-    track.stop();
-    localStream.removeTrack(track);
-  });
-
+  localStream.getTracks().forEach(track => { track.stop(); localStream.removeTrack(track); });
   try {
     const newStream = await getLocalStream(cameraSelect.value, micSelect.value);
     localStream = newStream;
-
     const newVideoTrack = localStream.getVideoTracks()[0];
     const newAudioTrack = localStream.getAudioTracks()[0];
-
     if (!isJoined) {
       myPreviewVideo.srcObject = localStream;
       if (newVideoTrack) newVideoTrack.enabled = initCameraToggle.checked;
       if (newAudioTrack) newAudioTrack.enabled = initMicToggle.checked;
     } else {
       myLocalVideo.srcObject = localStream;
-
       if (newVideoTrack) newVideoTrack.enabled = myCamBtn.classList.contains("on");
       if (newAudioTrack) newAudioTrack.enabled = myMicBtn.classList.contains("on");
-
       for (const id in peerConnections) {
         const pc = peerConnections[id];
         const senders = pc.getSenders();
-
         senders.forEach(sender => {
           if (sender.track && sender.track.kind === "video" && newVideoTrack) {
             sender.replaceTrack(newVideoTrack).catch(e => console.error(e));
@@ -81,14 +79,11 @@ async function handleDeviceChange() {
         });
       }
     }
-  } catch (e) {
-    console.error("デバイスの切り替えに失敗しました:", e);
-  }
+  } catch (e) { console.error("デバイスの切り替えに失敗しました:", e); }
 }
 
 cameraSelect.addEventListener("change", handleDeviceChange);
 micSelect.addEventListener("change", handleDeviceChange);
-
 settingsBtn.addEventListener("click", () => settingsModal.style.display = "flex");
 closeSettingsBtn.addEventListener("click", () => settingsModal.style.display = "none");
 
@@ -108,6 +103,7 @@ updateNameBtn.addEventListener("click", async () => {
   if (!newName) return;
   await updateMyName(newName);
   myLocalName.textContent = `${newName} (あなた)`;
+  currentUserName = newName;
   newNameInput.value = "";
   alert("名前を更新しました");
 });
@@ -125,7 +121,7 @@ function updateGridClass() {
 joinButton.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   if (!name) return alert("名前を入力してください");
-
+  currentUserName = name;
   const videoTrack = localStream.getVideoTracks()[0];
   const audioTrack = localStream.getAudioTracks()[0];
   if (videoTrack) videoTrack.enabled = initCameraToggle.checked;
@@ -138,7 +134,6 @@ joinButton.addEventListener("click", async () => {
 
   await joinRoom(name);
   isJoined = true;
-  
   joinScreen.style.display = "none";
   roomScreen.style.display = "flex";
   myLocalVideo.srcObject = localStream;
@@ -155,14 +150,10 @@ joinButton.addEventListener("click", async () => {
     for (const id in participants) {
       const p = participants[id];
       if (id !== myId && !peerConnections[id]) {
-        startP2P(id, localStream, (peerId, remoteStream) => {
-          addVideoCard(peerId, p.name, remoteStream);
-        });
+        startP2P(id, localStream, (peerId, remoteStream) => { addVideoCard(peerId, p.name, remoteStream); });
       }
       const existingCard = document.getElementById(`card-${id}`);
-      if (existingCard) {
-        existingCard.querySelector(".videoName").textContent = p.name;
-      }
+      if (existingCard) { existingCard.querySelector(".videoName").textContent = p.name; }
     }
     updateGridClass();
   });
@@ -170,20 +161,11 @@ joinButton.addEventListener("click", async () => {
 
 myCamBtn.addEventListener("click", () => {
   const t = localStream.getVideoTracks()[0];
-  if (t) { 
-    t.enabled = !t.enabled; 
-    myCamBtn.classList.toggle("on", t.enabled); 
-    myCamStatus.classList.toggle("on", t.enabled); 
-  }
+  if (t) { t.enabled = !t.enabled; myCamBtn.classList.toggle("on", t.enabled); myCamStatus.classList.toggle("on", t.enabled); }
 });
-
 myMicBtn.addEventListener("click", () => {
   const t = localStream.getAudioTracks()[0];
-  if (t) { 
-    t.enabled = !t.enabled; 
-    myMicBtn.classList.toggle("on", t.enabled); 
-    myMicStatus.classList.toggle("on", t.enabled); 
-  }
+  if (t) { t.enabled = !t.enabled; myMicBtn.classList.toggle("on", t.enabled); myMicStatus.classList.toggle("on", t.enabled); }
 });
 
 function addVideoCard(id, name, stream) {
@@ -191,7 +173,6 @@ function addVideoCard(id, name, stream) {
   const card = document.createElement("div");
   card.className = "videoCard";
   card.id = `card-${id}`;
-  
   card.innerHTML = `
     <div class="video-wrapper"><video autoplay playsinline></video></div>
     <div class="videoControlBar">
@@ -220,7 +201,6 @@ function addVideoCard(id, name, stream) {
 
   const camIndicator = card.querySelector(`#camStatus-${id}`);
   const micIndicator = card.querySelector(`#micStatus-${id}`);
-  
   setInterval(() => {
     const vTrack = stream.getVideoTracks()[0];
     const aTrack = stream.getAudioTracks()[0];
@@ -228,5 +208,66 @@ function addVideoCard(id, name, stream) {
     if (aTrack) micIndicator.classList.toggle("on", aTrack.enabled && !aTrack.muted);
   }, 500);
 }
+
+// タブ切り替えロジック
+tabButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    tabButtons.forEach(btn => btn.classList.remove("active"));
+    button.classList.add("active");
+
+    const targetTab = button.getAttribute("data-tab");
+    tabContents.forEach(content => {
+      content.classList.remove("active");
+      if (content.id === `tabContent-${targetTab}`) {
+        content.classList.add("active");
+      }
+    });
+
+    if (targetTab === "chat") {
+      scrollToBottom();
+    }
+  });
+});
+
+// チャット送信・表示処理（ローカルモック）
+function sendChatMessage() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+
+  appendMessage(currentUserName, text, true);
+  chatInput.value = "";
+  chatInput.focus();
+}
+
+function appendMessage(sender, text, isMe = false) {
+  const messageWrapper = document.createElement("div");
+  messageWrapper.style.display = "flex";
+  messageWrapper.style.flexDirection = "column";
+  if (isMe) messageWrapper.style.alignItems = "flex-end";
+
+  const nameLabel = document.createElement("span");
+  nameLabel.className = "chat-user-name";
+  nameLabel.textContent = isMe ? "あなた" : sender;
+  messageWrapper.appendChild(nameLabel);
+
+  const bubble = document.createElement("div");
+  bubble.className = `chat-bubble ${isMe ? "my-msg" : ""}`;
+  bubble.textContent = text;
+  messageWrapper.appendChild(bubble);
+
+  chatMessages.appendChild(messageWrapper);
+  scrollToBottom();
+}
+
+function scrollToBottom() {
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatSendBtn.addEventListener("click", sendChatMessage);
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.isComposing) {
+    sendChatMessage();
+  }
+});
 
 init();
