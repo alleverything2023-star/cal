@@ -1,47 +1,247 @@
-body{
-margin:0;
-padding:20px;
-font-family:sans-serif;
+/* 全体リセット */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-#roomScreen{
-display:none;
+body, html {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #1e1f22;
+  color: #f2f3f5;
+  overflow: hidden;
 }
 
-input,
-select,
-button{
-width:100%;
-padding:10px;
-margin-top:10px;
-box-sizing:border-box;
+/* --- 入室前画面のスタイル --- */
+#joinScreen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  background-color: #313338;
 }
 
-#videoGrid{
-display:grid;
-grid-template-columns:
-repeat(auto-fit,minmax(250px,1fr));
-gap:10px;
-margin-top:20px;
+.setup-container {
+  background: #2b2d31;
+  padding: 30px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  text-align: center;
 }
 
-.videoCard{
-border:1px solid #ccc;
-border-radius:8px;
-overflow:hidden;
+.preview-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #111;
+  border-radius: 8px;
+  margin: 15px 0;
+  overflow: hidden;
 }
 
-.videoCard video{
-width:100%;
-display:block;
+.preview-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.videoName{
-padding:8px;
-text-align:center;
-font-weight:bold;
+.fallback-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #aaa;
 }
 
-#participantPanel{
-margin-top:20px;
+.toggle-controls, .device-selects, .join-form {
+  margin-top: 15px;
+  text-align: left;
+}
+
+.toggle-controls label {
+  display: block;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.select-field {
+  margin-bottom: 10px;
+}
+
+.select-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: #b5bac1;
+  margin-bottom: 4px;
+}
+
+select, input[type="text"] {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  background: #1e1f22;
+  color: #text;
+  color: white;
+}
+
+#joinButton {
+  width: 100%;
+  padding: 12px;
+  background: #5865f2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+#joinButton:hover {
+  background: #4752c4;
+}
+
+/* --- ルーム画面（左右分割メイン） --- */
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* 左画面：ビデオエリア */
+#leftContainer {
+  flex: 7; /* 全体の7割の幅 */
+  height: 100%;
+  padding: 15px;
+  background-color: #111214;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 右画面：拡張用大容量エリア */
+#rightContainer {
+  flex: 3; /* 全体の3割の幅 */
+  height: 100%;
+  background-color: #2b2d31;
+  border-left: 1px solid #3f4147;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-content-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.future-feature-space {
+  flex-grow: 1;
+  margin-top: 20px;
+  border: 2px dashed #4e5058;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #313338;
+}
+
+/* --- ビデオグリッド自動敷き詰めアルゴリズム --- */
+#videoGrid {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(40%, 1fr));
+  grid-auto-rows: 1fr;
+}
+
+/* 参加者が1人の時は画面いっぱいに広げる */
+#videoGrid:has(.videoCard:nth-child(1):last-child) {
+  grid-template-columns: 1fr;
+}
+
+/* 参加者が2人の時は左右または上下に半分ずつ */
+#videoGrid:has(.videoCard:nth-child(2):last-child) {
+  grid-template-columns: repeat(auto-fit, minmax(45%, 1fr));
+}
+
+.videoCard {
+  position: relative;
+  background-color: #2b2d31;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.videoCard video {
+  width: 100%;
+  flex-grow: 1;
+  object-fit: cover;
+  background-color: #000;
+}
+
+/* ビデオの下部操作バー（名前 ＋ ボタン） */
+.videoControlBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #232428;
+  min-height: 45px;
+}
+
+.videoName {
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.action-btn {
+  background: #4e5058;
+  border: none;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.action-btn:hover {
+  background: #6d6f78;
+}
+
+.action-btn.off {
+  background: #da373c; /* OFFの時は赤色 */
+}
+
+/* 右側用参加者リスト */
+#participantList {
+  list-style: none;
+  margin-top: 10px;
+}
+
+#participantList li {
+  padding: 8px 12px;
+  background: #313338;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }
