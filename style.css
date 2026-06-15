@@ -34,32 +34,67 @@ body, html {
   overflow: hidden;
 }
 
-/* --- 入室前画面 --- */
+/* --- 入室前画面：適切な横幅とゆとりのある余白を維持 --- */
 #joinScreen {
   display: flex; justify-content: center; align-items: center;
   width: 100%; height: 100dvh;
   background-color: var(--bg-main);
+  padding: 20px;
 }
 .setup-container {
   background: var(--bg-card);
-  padding: 30px; border-radius: 12px;
-  width: 90%; max-width: 400px;
+  padding: 35px; border-radius: 16px;
+  width: 100%; 
+  max-width: 500px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.3);
   text-align: center;
+}
+.setup-container h2 {
+  margin-bottom: 20px;
+  font-size: 1.6rem;
 }
 .preview-box {
   width: 100%; aspect-ratio: 16/9; background: #000;
-  border-radius: 8px; margin: 15px 0; overflow: hidden;
+  border-radius: 8px; margin-bottom: 20px; overflow: hidden;
 }
 .preview-box video { width: 100%; height: 100%; object-fit: cover; }
+
+.toggle-controls {
+  margin-bottom: 20px;
+  text-align: left;
+}
+.toggle-controls label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.device-selects {
+  margin-bottom: 20px;
+}
+.select-field {
+  margin-bottom: 14px;
+  text-align: left;
+}
+.select-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
 select, input[type="text"] {
-  width: 100%; padding: 10px; margin-top: 5px;
-  border-radius: 6px; border: 1px solid #ccc;
+  width: 100%; padding: 12px; margin-top: 5px;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
   background: var(--bg-input); color: var(--text-main);
+  font-size: 1rem;
 }
 #joinButton {
-  width: 100%; padding: 12px; background: var(--accent);
-  color: white; border: none; border-radius: 6px; font-weight: bold; margin-top: 20px;
+  width: 100%; padding: 14px; background: var(--accent);
+  color: white; border: none; border-radius: 8px; font-weight: bold; margin-top: 25px;
+  font-size: 1.1rem; cursor: pointer;
 }
+#joinButton:hover { opacity: 0.9; }
 
 /* --- 右上のコントロールボタン群 --- */
 .top-controls {
@@ -106,10 +141,36 @@ select, input[type="text"] {
 .video-wrapper { flex: 1; background: #000; display: flex; justify-content: center; align-items: center; }
 .video-wrapper video { width: 100%; height: 100%; object-fit: contain; }
 
-/* 操作バー */
-.videoControlBar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #232428; height: 50px; }
-.videoName { font-size: 0.9rem; color: #fff; }
-.action-btn { background: var(--danger); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+/* --- 【修正】操作バー：縦幅を広げ（50px→56px）、ボタンが上下に見切れる・埋もれるのを防止 --- */
+.videoControlBar { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 0 16px; 
+  background: #232428; 
+  height: 56px; /* 適切な高さを確保 */
+}
+.videoName { font-size: 0.95rem; color: #fff; font-weight: 500; }
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* --- 【修正】ボタン自体はコンパクトなまま、バーの中に綺麗に収まるように配置 --- */
+.action-btn {
+  background: var(--danger); 
+  border: none; 
+  color: white; 
+  padding: 6px 12px; /* 内側の余白を適正化 */
+  border-radius: 6px; 
+  cursor: pointer;
+  font-size: 0.95rem; /* 前回の巨大サイズから元のスマートな大きさに戻す */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px; /* ボタンの高さを明示してバーの中で浮かないように固定 */
+}
 .action-btn.on { background: var(--success); }
 
 #bottomContainer { height: 45px; background: var(--bg-main); border-top: 1px solid #2b2d31; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
