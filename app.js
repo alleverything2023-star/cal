@@ -6,6 +6,7 @@ let localStream = null;
 let isJoined = false;
 let currentUserName = "あなた";
 
+// HTML要素の取得
 const joinScreen = document.getElementById("joinScreen");
 const roomScreen = document.getElementById("roomScreen");
 const myPreviewVideo = document.getElementById("myPreviewVideo");
@@ -19,6 +20,7 @@ const myLocalVideo = document.getElementById("myLocalVideo");
 const myLocalName = document.getElementById("myLocalName");
 const videoGrid = document.getElementById("videoGrid");
 
+// 右上のコントロールボタン類
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
@@ -27,6 +29,7 @@ const appLayout = document.getElementById("appLayout");
 const myCamStatus = document.getElementById("myCamStatus");
 const myMicStatus = document.getElementById("myMicStatus");
 
+// 設定モーダル関連
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
@@ -34,21 +37,23 @@ const themeToggleBtn = document.getElementById("themeToggleBtn");
 const newNameInput = document.getElementById("newNameInput");
 const updateNameBtn = document.getElementById("updateNameBtn");
 
+// タブ・チャット関連
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatMessages = document.getElementById("chatMessages");
 
-// ビデオ要素にストリームを安全に設定し、iPad用に再生を強制するヘルパー
+// ビデオ要素にストリームを設定するヘルパー
 function setVideoSrc(videoElement, stream) {
   if (!videoElement) return;
   videoElement.srcObject = stream;
   videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
 }
 
+// アプリの初期化
 async function init() {
-  // 入室画面が端末からはみ出さないように調整
+  // 入室画面が端末からはみ出さないように調整（既存UI維持）
   if (joinScreen) {
     joinScreen.style.display = "flex";
     joinScreen.style.flexDirection = "column";
@@ -78,31 +83,29 @@ async function init() {
     }
   }
 
-  // 【新規：UI改造】2本目のタブ（通常は設定や別画面）を「PDF共有ビューア」に書き換える
-  // ※HTML側の構造（2番目のタブボタンに対応するコンテンツエリア）を自動追従
+  // 【PDF共有ビューアの安全な埋め込み】
+  // 既存のHTMLタブ構造を壊さず、中身だけを綺麗に書き換える
   if (tabContents && tabContents[1]) {
     const pdfTabArea = tabContents[1];
     pdfTabArea.innerHTML = `
       <div style="display:flex; flex-direction:column; height:100%; padding:10px; box-sizing:border-box;">
         <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <label style="background-color:#007bff; color:white; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px;">
+          <label style="background-color:#007bff; color:white; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">
             PDFファイルを選択して共有
             <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;">
           </label>
           <span id="pdfFileNameLabel" style="font-size:12px; color:#aaa; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中のファイルはありません</span>
         </div>
         <div id="pdfViewerWrapper" style="flex:1; border:2px dashed #444; border-radius:6px; display:flex; justify-content:center; align-items:center; overflow:hidden; background-color:#222; min-height:300px;">
-          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">ここに共有されたPDFが表示されます<br>(各端末で自由にめくれます)</p>
+          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">ここに共有されたPDFが表示されます<br>(各端末で自由にめくったり拡大できます)</p>
         </div>
       </div>
     `;
 
-    // 2番目のタブボタンのテキストを「PDF共有」に変更
     if (tabButtons && tabButtons[1]) {
       tabButtons[1].textContent = "PDF共有";
     }
 
-    // PDF選択時のイベントリスナーを設定
     const pdfFileInput = document.getElementById("pdfFileInput");
     if (pdfFileInput) {
       pdfFileInput.addEventListener("change", handlePdfSelect);
@@ -118,19 +121,16 @@ async function init() {
     await updateDeviceList();
   } catch (e) { 
     console.error("初期化エラー:", e);
-    alert("カメラ・マイクの起動に失敗しました。"); 
   }
 }
 
-// 【新規】PDFファイルがローカルで選択された時の処理
+// PDFファイルがローカルで選択された時の処理
 function handlePdfSelect(e) {
   const file = e.target.files[0];
   if (!file || file.type !== "application/pdf") {
     alert("PDFファイルを選択してください。");
     return;
   }
-
-  // 容量制限アラート（Firebaseの限界を考慮し、推奨3MB以下、最大5MB程度）
   if (file.size > 5 * 1024 * 1024) {
     alert("ファイルサイズが大きすぎます。5MB以下のPDFを選択してください。");
     return;
@@ -141,20 +141,19 @@ function handlePdfSelect(e) {
 
   const reader = new FileReader();
   reader.onload = async function(event) {
-    const base64Data = event.target.result; // data:application/pdf;base64,xxxx...
+    const base64Data = event.target.result;
     try {
       await sendPdfToFirebase(base64Data, file.name);
-      console.log("PDFの送信が完了しました:", file.name);
     } catch(err) {
-      console.error("PDF送信エラー:", err);
-      alert("PDFの共有に失敗しました。データサイズを小さくしてください。");
+      console.error(err);
+      alert("PDFの共有に失敗しました。");
       if (label) label.textContent = "共有失敗";
     }
   };
   reader.readAsDataURL(file);
 }
 
-// 【新規】FirebaseからPDFデータが降ってきた時に画面上に描写する処理
+// FirebaseからPDFを受け取って表示
 function renderPdfBlob(base64Data, fileName, senderId) {
   const wrapper = document.getElementById("pdfViewerWrapper");
   const label = document.getElementById("pdfFileNameLabel");
@@ -164,7 +163,6 @@ function renderPdfBlob(base64Data, fileName, senderId) {
     label.textContent = fileName + (senderId === myId ? " (あなた)" : "");
   }
 
-  // Base64からBlob形式のURL（一時的なファイルパス）を生成して埋め込む
   try {
     const byteCharacters = atob(base64Data.split(",")[1]);
     const byteNumbers = new Array(byteCharacters.length);
@@ -175,18 +173,15 @@ function renderPdfBlob(base64Data, fileName, senderId) {
     const blob = new Blob([byteArray], { type: "application/pdf" });
     const blobUrl = URL.createObjectURL(blob);
 
-    // iPadや標準ブラウザのPDF実装を利用するために iframe を生成して全画面埋め込み
     wrapper.innerHTML = `<iframe src="${blobUrl}" style="width:100%; height:100%; border:none;" allow="fullscreen"></iframe>`;
     wrapper.style.border = "none";
-    
-    // 誰かがPDFを共有したことをチャット画面等に切り替えなくても気付けるように通知（任意）
-    console.log(`新しいPDF資料 [${fileName}] が共有されました`);
   } catch (err) {
-    console.error("PDF展開エラー:", err);
+    console.error(err);
     wrapper.innerHTML = `<p style="color:#ff6b6b; padding:20px; text-align:center;">PDFの読み込みに失敗しました。</p>`;
   }
 }
 
+// デバイス（カメラ・マイク）切り替え処理
 async function handleDeviceChange() {
   if (!localStream) return;
   localStream.getTracks().forEach(track => { try { track.stop(); } catch(err) {} });
@@ -205,6 +200,10 @@ async function handleDeviceChange() {
       const vTrack = localStream.getVideoTracks()[0];
       const aTrack = localStream.getAudioTracks()[0];
       
+      // カメラ・マイクボタンの状態を適用
+      if (vTrack && myCamBtn) vTrack.enabled = myCamBtn.classList.contains("on");
+      if (aTrack && myMicBtn) aTrack.enabled = myMicBtn.classList.contains("on");
+      
       for (const id in peerConnections) {
         const pc = peerConnections[id];
         if (!pc) continue;
@@ -219,15 +218,95 @@ async function handleDeviceChange() {
 
 if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
 if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
-if (settingsBtn) settingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "flex"));
-if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "none"));
 
+// 【復活＆完全固定】右上の各操作ボタンのクリックイベント
+if (settingsBtn) {
+  settingsBtn.addEventListener("click", () => {
+    if (settingsModal) settingsModal.style.display = "flex";
+  });
+}
+if (closeSettingsBtn) {
+  closeSettingsBtn.addEventListener("click", () => {
+    if (settingsModal) settingsModal.style.display = "none";
+  });
+}
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const isDark = document.body.classList.contains("dark-theme");
+    if (isDark) {
+      document.body.classList.replace("dark-theme", "light-theme");
+      themeToggleBtn.textContent = "ダークモードに切替";
+    } else {
+      document.body.classList.replace("light-theme", "dark-theme");
+      themeToggleBtn.textContent = "ライトモードに切替";
+    }
+  });
+}
+
+if (updateNameBtn) {
+  updateNameBtn.addEventListener("click", async () => {
+    if (!newNameInput) return;
+    const newName = newNameInput.value.trim();
+    if (!newName) return;
+    await updateMyName(newName);
+    if (myLocalName) myLocalName.textContent = `${newName} (あなた)`;
+    currentUserName = newName;
+    newNameInput.value = "";
+    alert("名前を更新しました");
+  });
+}
+
+if (layoutToggleBtn) {
+  layoutToggleBtn.addEventListener("click", () => {
+    if (appLayout) {
+      appLayout.classList.toggle("layout-default");
+      appLayout.classList.toggle("layout-sidebar");
+    }
+  });
+}
+
+if (myCamBtn) {
+  myCamBtn.addEventListener("click", () => {
+    if (!localStream) return;
+    const t = localStream.getVideoTracks()[0];
+    if (t) { 
+      t.enabled = !t.enabled; 
+      myCamBtn.classList.toggle("on", t.enabled); 
+      if (myCamStatus) myCamStatus.classList.toggle("on", t.enabled); 
+    }
+  });
+}
+
+if (myMicBtn) {
+  myMicBtn.addEventListener("click", () => {
+    if (!localStream) return;
+    const t = localStream.getAudioTracks()[0];
+    if (t) { 
+      t.enabled = !t.enabled; 
+      myMicBtn.classList.toggle("on", t.enabled); 
+      if (myMicStatus) myMicStatus.classList.toggle("on", t.enabled); 
+    }
+  });
+}
+
+// 部屋に参加する処理
 if (joinButton) {
   joinButton.addEventListener("click", async () => {
     if (!nameInput || !localStream) return;
     const name = nameInput.value.trim();
     if (!name) return alert("名前を入力してください");
     currentUserName = name;
+
+    const videoTrack = localStream.getVideoTracks()[0];
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (videoTrack && initCameraToggle) videoTrack.enabled = initCameraToggle.checked;
+    if (audioTrack && initMicToggle) audioTrack.enabled = initMicToggle.checked;
+
+    if (myCamBtn && initCameraToggle) myCamBtn.classList.toggle("on", initCameraToggle.checked);
+    if (myCamStatus && initCameraToggle) myCamStatus.classList.toggle("on", initCameraToggle.checked);
+    if (myMicBtn && initMicToggle) myMicBtn.classList.toggle("on", initMicToggle.checked);
+    if (myMicStatus && initMicToggle) myMicStatus.classList.toggle("on", initMicToggle.checked);
 
     await joinRoom(name);
     isJoined = true;
@@ -236,6 +315,7 @@ if (joinButton) {
     if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
     if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
 
+    // リアルタイム参加者監視
     listenParticipants((participants) => {
       for (const id in peerConnections) {
         if (!participants[id]) {
@@ -251,11 +331,12 @@ if (joinButton) {
       updateGridClass();
     });
 
+    // チャット受信監視
     listenChatMessages((sender, text) => {
       appendMessage(sender, text, sender === currentUserName);
     });
 
-    // 【新規】FirebaseからPDF共有データが送られてくるのをリアルタイム監視開始
+    // PDF受信監視
     listenPdfData((base64Data, fileName, senderId) => {
       renderPdfBlob(base64Data, fileName, senderId);
     });
@@ -281,6 +362,7 @@ function updateGridClass() {
   videoGrid.className = "count-" + videoGrid.querySelectorAll(".videoCard").length;
 }
 
+// タブ切り替え処理
 tabButtons.forEach(button => {
   button.addEventListener("click", () => {
     tabButtons.forEach(btn => btn.classList.remove("active"));
@@ -293,6 +375,7 @@ tabButtons.forEach(button => {
   });
 });
 
+// チャット送信
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
