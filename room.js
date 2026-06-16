@@ -8,6 +8,7 @@ const roomId = "default_room";
 const participantsRef = ref(db, `rooms/${roomId}/participants`);
 const signalingRef = ref(db, `rooms/${roomId}/signaling/${myId}`);
 const chatRef = ref(db, `rooms/${roomId}/messages`); 
+const pdfRef = ref(db, `rooms/${roomId}/pdfData`); // PDFデータ共有用のノード
 
 let signalingListener = null;
 
@@ -30,10 +31,13 @@ export async function joinRoom(name) {
     const pRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/participants/${myId}.json`;
     fetch(pRefUrl, { method: "DELETE", keepalive: true });
 
-    // もし自分が最後の1人だった場合、チャット履歴もFetchで強制削除命令を出す（Safari用保険）
+    // もし自分が最後の1人だった場合、チャット履歴とPDFデータも強制削除
     if (Object.keys(roomParticipants).length <= 1) {
       const chatRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/messages.json`;
       fetch(chatRefUrl, { method: "DELETE", keepalive: true });
+      
+      const pdfRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`;
+      fetch(pdfRefUrl, { method: "DELETE", keepalive: true });
     }
   };
 
@@ -42,16 +46,16 @@ export async function joinRoom(name) {
 }
 
 export function listenParticipants(callback) {
-  // 参加者リストの変更をリアルタイムに監視
   onValue(participantsRef, async (snapshot) => {
     const data = snapshot.val();
     if (data) {
       roomParticipants = data;
     } else {
       roomParticipants = {};
-      // 参加者が完全に0人になったら、チャット履歴を自動で綺麗に削除する
+      // 参加者が完全に0人になったら、チャットとPDFをクリーンアップ
       await remove(chatRef);
-      console.log("部屋が空になったため、チャット履歴を消去しました。");
+      await remove(pdfRef);
+      console.log("部屋が空になったため、データを消去しました。");
     }
     callback(roomParticipants);
   });
@@ -80,11 +84,34 @@ export function sendChatMessageToFirebase(sender, text) {
  * リアルタイムにチャットメッセージを受信するリスナー
  */
 export function listenChatMessages(callback) {
-  // 新しいメッセージが追加された瞬間をキャッチ
   onChildAdded(chatRef, (snapshot) => {
     const msg = snapshot.val();
     if (msg) {
       callback(msg.sender, msg.text);
+    }
+  });
+}
+
+/**
+ * 【新規】PDFデータをFirebase経由で全員に送信する
+ */
+export async function sendPdfToFirebase(base64Data, fileName) {
+  await set(pdfRef, {
+    pdf: base64Data,
+    name: fileName,
+    senderId: myId,
+    timestamp: Date.now()
+  });
+}
+
+/**
+ * 【新規】誰かがPDFをアップロードしたのを検知するリスナー
+ */
+export function listenPdfData(callback) {
+  onValue(pdfRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data && data.pdf) {
+      callback(data.pdf, data.name, data.senderId);
     }
   });
 }
