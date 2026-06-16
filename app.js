@@ -2,6 +2,20 @@ import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFire
 import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
+// ==========================================
+// 【新規】Google Drive Picker API の設定値
+// ==========================================
+const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
+const CLIENT_ID = "421359626063-q6s6nubiclkdu1s7digsu8asjji08dc8.apps.googleusercontent.com";
+const APP_ID = "421359626063";
+
+// ドライブ選択画面に必要なスコープ
+const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+
+let accessToken = null;
+let pickerInited = false;
+let gapiInited = false;
+
 let localStream = null;
 let isJoined = false;
 let currentUserName = "あなた";
@@ -53,7 +67,7 @@ function setVideoSrc(videoElement, stream) {
 
 // アプリの初期化
 async function init() {
-  // 入室画面が端末からはみ出さないように調整
+  // 入室画面のレイアウト崩れ防止
   if (joinScreen) {
     joinScreen.style.display = "flex";
     joinScreen.style.flexDirection = "column";
@@ -83,18 +97,19 @@ async function init() {
     }
   }
 
-  // 【PDF共有をGoogleドライブのURL同期方式にアップグレード】
+  // 【PDF共有タブをGoogleドライブ選択UIに上書き書き換え】
   if (tabContents && tabContents[1]) {
     const pdfTabArea = tabContents[1];
     pdfTabArea.innerHTML = `
       <div style="display:flex; flex-direction:column; height:100%; padding:10px; box-sizing:border-box;">
-        <div style="margin-bottom:10px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-          <input type="text" id="driveUrlInput" placeholder="Googleドライブの共有リンク(URL)を貼り付け" style="flex:1; min-width:180px; padding:6px 10px; border:1px solid #555; border-radius:4px; background-color:#333; color:white; font-size:13px;">
-          <button id="shareDriveUrlBtn" style="background-color:#007bff; color:white; padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">共有</button>
+        <div style="margin-bottom:10px; display:flex; justify-content:center;">
+          <button id="openDrivePickerBtn" style="background-color:#25a15a; color:white; padding:8px 16px; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:8px;">
+            📁 GoogleドライブからPDFを選択
+          </button>
         </div>
-        <div id="pdfFileNameLabel" style="font-size:11px; color:#aaa; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中のドライブURLはありません</div>
+        <div id="pdfFileNameLabel" style="font-size:12px; color:#aaa; margin-bottom:6px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中の資料はありません</div>
         <div id="pdfViewerWrapper" style="flex:1; border:2px dashed #444; border-radius:6px; display:flex; justify-content:center; align-items:center; overflow:hidden; background-color:#222; min-height:300px;">
-          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">Googleドライブの共有URLを上に貼り付けて「共有」を押すと、ここに全ページ表示されます。<br>(各自で自由にめくったり拡大できます)</p>
+          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">上のボタンからGoogleドライブのフォルダ・ファイルを開いてPDFを共有できます。<br>(共有後は全員の画面で全ページ自由にスクロール・拡大できます)</p>
         </div>
       </div>
     `;
@@ -103,11 +118,18 @@ async function init() {
       tabButtons[1].textContent = "PDF共有";
     }
 
-    const shareDriveUrlBtn = document.getElementById("shareDriveUrlBtn");
-    if (shareDriveUrlBtn) {
-      shareDriveUrlBtn.addEventListener("click", handleDriveUrlShare);
+    const openDrivePickerBtn = document.getElementById("openDrivePickerBtn");
+    if (openDrivePickerBtn) {
+      openDrivePickerBtn.addEventListener("click", handleDrivePickerOpen);
     }
   }
+
+  // Google APIライブラリのバックグラウンド初期化起動
+  try {
+    if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
+      gapi.load('client:picker', () => { gapiInited = true; });
+    }
+  } catch (err) { console.error("Googleライブラリロード失敗:", err); }
 
   try {
     localStream = await getLocalStream();
@@ -121,72 +143,91 @@ async function init() {
   }
 }
 
-// ドライブのURLを共有ボタンを押した時の処理
-async function handleDriveUrlShare() {
-  const urlInput = document.getElementById("driveUrlInput");
-  if (!urlInput) return;
-  
-  let url = urlInput.value.trim();
-  if (!url) {
-    alert("GoogleドライブのリンクURLを入力してください。");
-    return;
-  }
-
-  // ドライブの通常URLを埋め込み用のプレビューURLへ自動変換する安全ロジック
-  // 例: /file/d/XXXXX/view?usp=sharing -> /file/d/XXXXX/preview
-  if (url.includes("drive.google.com")) {
-    if (url.includes("/view")) {
-      url = url.split("/view")[0] + "/preview";
-    } else if (!url.endsWith("/preview") && url.includes("/file/d/")) {
-      url = url.split("?")[0];
-      if (!url.endsWith("/preview")) {
-        url = url + "/preview";
-      }
+// ==========================================
+// 【新規】Googleドライブの選択ポップアップ制御
+// ==========================================
+async function handleDrivePickerOpen() {
+  // Google認証クライアントのセットアップ（初回のみ）
+  if (!accessToken) {
+    try {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: async (response) => {
+          if (response.error !== undefined) {
+            throw response;
+          }
+          accessToken = response.access_token;
+          createPicker();
+        },
+      });
+      // ログイン・認証ポップアップを表示
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+    } catch (err) {
+      console.error("Google認証エラー:", err);
+      alert("Googleアカウントの認証に失敗しました。テストユーザー登録等を確認してください。");
     }
-  }
-
-  try {
-    // 既存のFirebase関数（sendPdfToFirebase）の第一引数にURLをそのままのせて全員へ同期
-    await sendPdfToFirebase(url, "Googleドライブの共有資料");
-    urlInput.value = ""; // 入力欄をクリア
-  } catch(err) {
-    console.error(err);
-    alert("URLの共有に失敗しました。");
+  } else {
+    createPicker();
   }
 }
 
-// Firebaseから同期されたURLを受け取ってiframeに全ページ綺麗に表示
-function renderPdfBlob(sharedUrlOrBase64, fileName, senderId) {
+// ピッカー選択画面の作成・表示
+function createPicker() {
+  if (!gapiInited || !accessToken) {
+    alert("Googleドライブの読み込み中です。もう一度お試しください。");
+    return;
+  }
+  
+  // ドライブ内のフォルダやファイルを階層表示するビュー
+  const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+    .setMimeTypes("application/pdf") // PDFのみ選択可能にするフィルタ
+    .setSelectFolderEnabled(false)   // フォルダそのものではなくファイルを選ばせる
+    .setShowFolders(true);           // フォルダ構造は表示する
+
+  const picker = new google.picker.PickerBuilder()
+    .addView(docsView)
+    .setOAuthToken(accessToken)
+    .setDeveloperKey(DEVELOPER_KEY)
+    .setAppId(APP_ID)
+    .setCallback(pickerCallback)
+    .build();
+    
+  picker.setVisible(true);
+}
+
+// ユーザーがドライブ上のPDFファイルを選んだ時の処理
+async function pickerCallback(data) {
+  if (data.action === google.picker.Action.PICKED) {
+    const doc = data.docs[0];
+    const fileId = doc.id;
+    const fileName = doc.name;
+    
+    // プレビュー表示用埋め込みURLを生成
+    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+    
+    try {
+      // FirebaseへURLを送信し、通話相手全員とリアルタイム同期
+      await sendPdfToFirebase(embedUrl, fileName);
+    } catch (err) {
+      console.error("Firebaseへの同期に失敗:", err);
+      alert("共有に失敗しました。");
+    }
+  }
+}
+
+// Firebaseから共有URLを受信してiframeに美しく描写
+function renderPdfBlob(sharedUrl, fileName, senderId) {
   const wrapper = document.getElementById("pdfViewerWrapper");
   const label = document.getElementById("pdfFileNameLabel");
   if (!wrapper) return;
 
-  // データがGoogleドライブのURLか、古いBase64形式のデータかを判別して安全に処理
-  let targetSrc = sharedUrlOrBase64;
-
-  if (sharedUrlOrBase64.startsWith("data:application/pdf") || !sharedUrlOrBase64.startsWith("http")) {
-    // もし古いBase64データが飛んできた場合の、前バージョンとの互換性用処理
-    try {
-      const byteCharacters = atob(sharedUrlOrBase64.split(",")[1]);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-      targetSrc = URL.createObjectURL(blob);
-    } catch (e) {
-      console.error(e);
-      return;
-    }
-  }
-
   if (label) {
-    label.textContent = "共有元: " + (senderId === myId ? "あなた" : "他のユーザー");
+    label.textContent = `共有中: ${fileName} (${senderId === myId ? "あなた" : "他のユーザー"})`;
   }
 
-  // Googleドライブのプレビュー画面（全ページ、スクロール、拡大可能）を完全埋め込み
-  wrapper.innerHTML = `<iframe src="${targetSrc}" style="width:100%; height:100%; border:none; background-color:#fff;" allow="fullscreen"></iframe>`;
+  // ドライブのプレビュー画面（全ページスクロール対応）を埋め込み
+  wrapper.innerHTML = `<iframe src="${sharedUrl}" style="width:100%; height:100%; border:none; background-color:#fff;" allow="fullscreen"></iframe>`;
   wrapper.style.border = "none";
 }
 
@@ -227,7 +268,7 @@ async function handleDeviceChange() {
 if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
 if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
 
-// 右上の各操作ボタンのクリックイベント（完全保護）
+// 右上の操作コントロールボタン（完全保護）
 if (settingsBtn) {
   settingsBtn.addEventListener("click", () => {
     if (settingsModal) settingsModal.style.display = "flex";
@@ -298,7 +339,7 @@ if (myMicBtn) {
   });
 }
 
-// 部屋に参加する処理
+// 入室処理
 if (joinButton) {
   joinButton.addEventListener("click", async () => {
     if (!nameInput || !localStream) return;
@@ -321,9 +362,9 @@ if (joinButton) {
     if (joinScreen) joinScreen.style.display = "none";
     if (roomScreen) roomScreen.style.display = "flex";
     if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
-    if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
+    if (myLocalName) myLocalName.textContent = `${name} (Apple User)`;
 
-    // リアルタイム参加者監視
+    // 参加者監視
     listenParticipants((participants) => {
       for (const id in peerConnections) {
         if (!participants[id]) {
@@ -339,14 +380,14 @@ if (joinButton) {
       updateGridClass();
     });
 
-    // チャット受信監視
+    // チャット監視
     listenChatMessages((sender, text) => {
       appendMessage(sender, text, sender === currentUserName);
     });
 
-    // PDFリンク受信監視
-    listenPdfData((base64OrUrl, fileName, senderId) => {
-      renderPdfBlob(base64OrUrl, fileName, senderId);
+    // PDFリンクリアルタイム監視
+    listenPdfData((sharedUrl, fileName, senderId) => {
+      renderPdfBlob(sharedUrl, fileName, senderId);
     });
   });
 }
@@ -370,7 +411,7 @@ function updateGridClass() {
   videoGrid.className = "count-" + videoGrid.querySelectorAll(".videoCard").length;
 }
 
-// タブ切り替え処理
+// タブ制御
 tabButtons.forEach(button => {
   button.addEventListener("click", () => {
     tabButtons.forEach(btn => btn.classList.remove("active"));
@@ -383,7 +424,7 @@ tabButtons.forEach(button => {
   });
 });
 
-// チャット送信
+// チャット
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
