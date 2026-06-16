@@ -53,7 +53,7 @@ function setVideoSrc(videoElement, stream) {
 
 // アプリの初期化
 async function init() {
-  // 入室画面が端末からはみ出さないように調整（既存UI維持）
+  // 入室画面が端末からはみ出さないように調整
   if (joinScreen) {
     joinScreen.style.display = "flex";
     joinScreen.style.flexDirection = "column";
@@ -83,21 +83,18 @@ async function init() {
     }
   }
 
-  // 【PDF共有ビューアの安全な埋め込み】
-  // 既存のHTMLタブ構造を壊さず、中身だけを綺麗に書き換える
+  // 【PDF共有をGoogleドライブのURL同期方式にアップグレード】
   if (tabContents && tabContents[1]) {
     const pdfTabArea = tabContents[1];
     pdfTabArea.innerHTML = `
       <div style="display:flex; flex-direction:column; height:100%; padding:10px; box-sizing:border-box;">
-        <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <label style="background-color:#007bff; color:white; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">
-            PDFファイルを選択して共有
-            <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;">
-          </label>
-          <span id="pdfFileNameLabel" style="font-size:12px; color:#aaa; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中のファイルはありません</span>
+        <div style="margin-bottom:10px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <input type="text" id="driveUrlInput" placeholder="Googleドライブの共有リンク(URL)を貼り付け" style="flex:1; min-width:180px; padding:6px 10px; border:1px solid #555; border-radius:4px; background-color:#333; color:white; font-size:13px;">
+          <button id="shareDriveUrlBtn" style="background-color:#007bff; color:white; padding:6px 14px; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">共有</button>
         </div>
+        <div id="pdfFileNameLabel" style="font-size:11px; color:#aaa; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中のドライブURLはありません</div>
         <div id="pdfViewerWrapper" style="flex:1; border:2px dashed #444; border-radius:6px; display:flex; justify-content:center; align-items:center; overflow:hidden; background-color:#222; min-height:300px;">
-          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">ここに共有されたPDFが表示されます<br>(各端末で自由にめくったり拡大できます)</p>
+          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">Googleドライブの共有URLを上に貼り付けて「共有」を押すと、ここに全ページ表示されます。<br>(各自で自由にめくったり拡大できます)</p>
         </div>
       </div>
     `;
@@ -106,9 +103,9 @@ async function init() {
       tabButtons[1].textContent = "PDF共有";
     }
 
-    const pdfFileInput = document.getElementById("pdfFileInput");
-    if (pdfFileInput) {
-      pdfFileInput.addEventListener("change", handlePdfSelect);
+    const shareDriveUrlBtn = document.getElementById("shareDriveUrlBtn");
+    if (shareDriveUrlBtn) {
+      shareDriveUrlBtn.addEventListener("click", handleDriveUrlShare);
     }
   }
 
@@ -124,61 +121,73 @@ async function init() {
   }
 }
 
-// PDFファイルがローカルで選択された時の処理
-function handlePdfSelect(e) {
-  const file = e.target.files[0];
-  if (!file || file.type !== "application/pdf") {
-    alert("PDFファイルを選択してください。");
-    return;
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    alert("ファイルサイズが大きすぎます。5MB以下のPDFを選択してください。");
+// ドライブのURLを共有ボタンを押した時の処理
+async function handleDriveUrlShare() {
+  const urlInput = document.getElementById("driveUrlInput");
+  if (!urlInput) return;
+  
+  let url = urlInput.value.trim();
+  if (!url) {
+    alert("GoogleドライブのリンクURLを入力してください。");
     return;
   }
 
-  const label = document.getElementById("pdfFileNameLabel");
-  if (label) label.textContent = "アップロード中...";
-
-  const reader = new FileReader();
-  reader.onload = async function(event) {
-    const base64Data = event.target.result;
-    try {
-      await sendPdfToFirebase(base64Data, file.name);
-    } catch(err) {
-      console.error(err);
-      alert("PDFの共有に失敗しました。");
-      if (label) label.textContent = "共有失敗";
+  // ドライブの通常URLを埋め込み用のプレビューURLへ自動変換する安全ロジック
+  // 例: /file/d/XXXXX/view?usp=sharing -> /file/d/XXXXX/preview
+  if (url.includes("drive.google.com")) {
+    if (url.includes("/view")) {
+      url = url.split("/view")[0] + "/preview";
+    } else if (!url.endsWith("/preview") && url.includes("/file/d/")) {
+      url = url.split("?")[0];
+      if (!url.endsWith("/preview")) {
+        url = url + "/preview";
+      }
     }
-  };
-  reader.readAsDataURL(file);
+  }
+
+  try {
+    // 既存のFirebase関数（sendPdfToFirebase）の第一引数にURLをそのままのせて全員へ同期
+    await sendPdfToFirebase(url, "Googleドライブの共有資料");
+    urlInput.value = ""; // 入力欄をクリア
+  } catch(err) {
+    console.error(err);
+    alert("URLの共有に失敗しました。");
+  }
 }
 
-// FirebaseからPDFを受け取って表示
-function renderPdfBlob(base64Data, fileName, senderId) {
+// Firebaseから同期されたURLを受け取ってiframeに全ページ綺麗に表示
+function renderPdfBlob(sharedUrlOrBase64, fileName, senderId) {
   const wrapper = document.getElementById("pdfViewerWrapper");
   const label = document.getElementById("pdfFileNameLabel");
   if (!wrapper) return;
 
-  if (label) {
-    label.textContent = fileName + (senderId === myId ? " (あなた)" : "");
-  }
+  // データがGoogleドライブのURLか、古いBase64形式のデータかを判別して安全に処理
+  let targetSrc = sharedUrlOrBase64;
 
-  try {
-    const byteCharacters = atob(base64Data.split(",")[1]);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+  if (sharedUrlOrBase64.startsWith("data:application/pdf") || !sharedUrlOrBase64.startsWith("http")) {
+    // もし古いBase64データが飛んできた場合の、前バージョンとの互換性用処理
+    try {
+      const byteCharacters = atob(sharedUrlOrBase64.split(",")[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      targetSrc = URL.createObjectURL(blob);
+    } catch (e) {
+      console.error(e);
+      return;
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: "application/pdf" });
-    const blobUrl = URL.createObjectURL(blob);
-
-    wrapper.innerHTML = `<iframe src="${blobUrl}" style="width:100%; height:100%; border:none;" allow="fullscreen"></iframe>`;
-    wrapper.style.border = "none";
-  } catch (err) {
-    console.error(err);
-    wrapper.innerHTML = `<p style="color:#ff6b6b; padding:20px; text-align:center;">PDFの読み込みに失敗しました。</p>`;
   }
+
+  if (label) {
+    label.textContent = "共有元: " + (senderId === myId ? "あなた" : "他のユーザー");
+  }
+
+  // Googleドライブのプレビュー画面（全ページ、スクロール、拡大可能）を完全埋め込み
+  wrapper.innerHTML = `<iframe src="${targetSrc}" style="width:100%; height:100%; border:none; background-color:#fff;" allow="fullscreen"></iframe>`;
+  wrapper.style.border = "none";
 }
 
 // デバイス（カメラ・マイク）切り替え処理
@@ -200,7 +209,6 @@ async function handleDeviceChange() {
       const vTrack = localStream.getVideoTracks()[0];
       const aTrack = localStream.getAudioTracks()[0];
       
-      // カメラ・マイクボタンの状態を適用
       if (vTrack && myCamBtn) vTrack.enabled = myCamBtn.classList.contains("on");
       if (aTrack && myMicBtn) aTrack.enabled = myMicBtn.classList.contains("on");
       
@@ -219,7 +227,7 @@ async function handleDeviceChange() {
 if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
 if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
 
-// 【復活＆完全固定】右上の各操作ボタンのクリックイベント
+// 右上の各操作ボタンのクリックイベント（完全保護）
 if (settingsBtn) {
   settingsBtn.addEventListener("click", () => {
     if (settingsModal) settingsModal.style.display = "flex";
@@ -336,9 +344,9 @@ if (joinButton) {
       appendMessage(sender, text, sender === currentUserName);
     });
 
-    // PDF受信監視
-    listenPdfData((base64Data, fileName, senderId) => {
-      renderPdfBlob(base64Data, fileName, senderId);
+    // PDFリンク受信監視
+    listenPdfData((base64OrUrl, fileName, senderId) => {
+      renderPdfBlob(base64OrUrl, fileName, senderId);
     });
   });
 }
