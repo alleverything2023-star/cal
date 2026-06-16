@@ -6,7 +6,7 @@ import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 // Google Drive Picker API の設定値
 // ==========================================
 const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
-const CLIENT_ID = "421359626063-q6s6nubiclkdu1s7digsu8asjji08dc8.apps.googleusercontent.com";
+const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
 const APP_ID = "421359626063";
 
 // ドライブ選択画面に必要なスコープ
