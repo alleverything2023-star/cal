@@ -97,7 +97,7 @@ async function init() {
     }
   }
 
-  // 【PDF共有タブのUI上書き：アカウント切替ボタンを追加】
+  // 【PDF共有タブのUIを強制上書き：緑ボタンと赤ボタンを絶対にセットで生成】
   if (tabContents && tabContents[1]) {
     const pdfTabArea = tabContents[1];
     pdfTabArea.innerHTML = `
@@ -126,7 +126,6 @@ async function init() {
       openDrivePickerBtn.addEventListener("click", handleDrivePickerOpen);
     }
 
-    // 【新規】アカウント切り替えボタンのイベント登録
     const switchAccountBtn = document.getElementById("switchAccountBtn");
     if (switchAccountBtn) {
       switchAccountBtn.addEventListener("click", handleSwitchAccount);
@@ -156,14 +155,12 @@ async function init() {
 // Googleドライブの選択ポップアップ制御
 // ==========================================
 async function handleDrivePickerOpen() {
-  // Google認証クライアントのセットアップ（トークンが無い場合）
   if (!accessToken) {
     try {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        // アカウントを強制選択させる（スキップさせない）ためのプロパティを追加
-        prompt: 'select_account',
+        prompt: 'select_account', // ログイン状態があっても必ずアカウント選択画面を出す設定
         callback: async (response) => {
           if (response.error !== undefined) {
             throw response;
@@ -175,30 +172,28 @@ async function handleDrivePickerOpen() {
       tokenClient.requestAccessToken();
     } catch (err) {
       console.error("Google認証エラー:", err);
-      alert("Googleアカウントの認証に失敗しました。テストユーザー登録等を確認してください。");
+      alert("Googleアカウントの認証に失敗しました。");
     }
   } else {
     createPicker();
   }
 }
 
-// 【新規】現在保持しているGoogleの認証を解除してクリアする処理
+// 現在保持しているGoogleの認証トークンを解除してクリアする処理
 function handleSwitchAccount() {
   if (accessToken) {
     try {
-      // Googleのセッションからトークンを無効化する公式処理
       google.accounts.oauth2.revokeToken(accessToken, () => {
         accessToken = null;
-        alert("ログイン状態をクリアしました。もう一度「PDFを選択」を押すとアカウントを選び直せます。");
+        alert("ログイン状態をクリアしました！もう一度「PDFを選択」を押すとアカウントを選び直せます。");
       });
     } catch (err) {
       console.error("トークン解除エラー:", err);
       accessToken = null;
     }
   } else {
-    // トークンが無い場合も一応クリア扱いにする
     accessToken = null;
-    alert("ログイン状態はすでにクリアされています。そのまま「PDFを選択」を押してください。");
+    alert("ログイン状態はすでにクリアされています。そのまま「PDFを選択」を押して別のアカウントを選んでください。");
   }
 }
 
