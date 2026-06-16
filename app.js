@@ -3,7 +3,7 @@ import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 // ==========================================
-// 【新規】Google Drive Picker API の設定値
+// Google Drive Picker API の設定値
 // ==========================================
 const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
 const CLIENT_ID = "421359626063-q6s6nubiclkdu1s7digsu8asjji08dc8.apps.googleusercontent.com";
@@ -97,14 +97,17 @@ async function init() {
     }
   }
 
-  // 【PDF共有タブをGoogleドライブ選択UIに上書き書き換え】
+  // 【PDF共有タブのUI上書き：アカウント切替ボタンを追加】
   if (tabContents && tabContents[1]) {
     const pdfTabArea = tabContents[1];
     pdfTabArea.innerHTML = `
       <div style="display:flex; flex-direction:column; height:100%; padding:10px; box-sizing:border-box;">
-        <div style="margin-bottom:10px; display:flex; justify-content:center;">
+        <div style="margin-bottom:10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
           <button id="openDrivePickerBtn" style="background-color:#25a15a; color:white; padding:8px 16px; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:8px;">
             📁 GoogleドライブからPDFを選択
+          </button>
+          <button id="switchAccountBtn" style="background-color:#dc3545; color:white; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; display:flex; align-items:center; gap:4px;">
+            🔄 アカウントを切り替える
           </button>
         </div>
         <div id="pdfFileNameLabel" style="font-size:12px; color:#aaa; margin-bottom:6px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中の資料はありません</div>
@@ -121,6 +124,12 @@ async function init() {
     const openDrivePickerBtn = document.getElementById("openDrivePickerBtn");
     if (openDrivePickerBtn) {
       openDrivePickerBtn.addEventListener("click", handleDrivePickerOpen);
+    }
+
+    // 【新規】アカウント切り替えボタンのイベント登録
+    const switchAccountBtn = document.getElementById("switchAccountBtn");
+    if (switchAccountBtn) {
+      switchAccountBtn.addEventListener("click", handleSwitchAccount);
     }
   }
 
@@ -144,15 +153,17 @@ async function init() {
 }
 
 // ==========================================
-// 【新規】Googleドライブの選択ポップアップ制御
+// Googleドライブの選択ポップアップ制御
 // ==========================================
 async function handleDrivePickerOpen() {
-  // Google認証クライアントのセットアップ（初回のみ）
+  // Google認証クライアントのセットアップ（トークンが無い場合）
   if (!accessToken) {
     try {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
+        // アカウントを強制選択させる（スキップさせない）ためのプロパティを追加
+        prompt: 'select_account',
         callback: async (response) => {
           if (response.error !== undefined) {
             throw response;
@@ -161,14 +172,33 @@ async function handleDrivePickerOpen() {
           createPicker();
         },
       });
-      // ログイン・認証ポップアップを表示
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      tokenClient.requestAccessToken();
     } catch (err) {
       console.error("Google認証エラー:", err);
       alert("Googleアカウントの認証に失敗しました。テストユーザー登録等を確認してください。");
     }
   } else {
     createPicker();
+  }
+}
+
+// 【新規】現在保持しているGoogleの認証を解除してクリアする処理
+function handleSwitchAccount() {
+  if (accessToken) {
+    try {
+      // Googleのセッションからトークンを無効化する公式処理
+      google.accounts.oauth2.revokeToken(accessToken, () => {
+        accessToken = null;
+        alert("ログイン状態をクリアしました。もう一度「PDFを選択」を押すとアカウントを選び直せます。");
+      });
+    } catch (err) {
+      console.error("トークン解除エラー:", err);
+      accessToken = null;
+    }
+  } else {
+    // トークンが無い場合も一応クリア扱いにする
+    accessToken = null;
+    alert("ログイン状態はすでにクリアされています。そのまま「PDFを選択」を押してください。");
   }
 }
 
@@ -179,11 +209,10 @@ function createPicker() {
     return;
   }
   
-  // ドライブ内のフォルダやファイルを階層表示するビュー
   const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
-    .setMimeTypes("application/pdf") // PDFのみ選択可能にするフィルタ
-    .setSelectFolderEnabled(false)   // フォルダそのものではなくファイルを選ばせる
-    .setShowFolders(true);           // フォルダ構造は表示する
+    .setMimeTypes("application/pdf") 
+    .setSelectFolderEnabled(false)   
+    .setShowFolders(true);           
 
   const picker = new google.picker.PickerBuilder()
     .addView(docsView)
@@ -203,11 +232,9 @@ async function pickerCallback(data) {
     const fileId = doc.id;
     const fileName = doc.name;
     
-    // プレビュー表示用埋め込みURLを生成
     const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
     
     try {
-      // FirebaseへURLを送信し、通話相手全員とリアルタイム同期
       await sendPdfToFirebase(embedUrl, fileName);
     } catch (err) {
       console.error("Firebaseへの同期に失敗:", err);
@@ -216,7 +243,7 @@ async function pickerCallback(data) {
   }
 }
 
-// Firebaseから共有URLを受信してiframeに美しく描写
+// Firebaseから共有URLを受信してiframeに描写
 function renderPdfBlob(sharedUrl, fileName, senderId) {
   const wrapper = document.getElementById("pdfViewerWrapper");
   const label = document.getElementById("pdfFileNameLabel");
@@ -226,7 +253,6 @@ function renderPdfBlob(sharedUrl, fileName, senderId) {
     label.textContent = `共有中: ${fileName} (${senderId === myId ? "あなた" : "他のユーザー"})`;
   }
 
-  // ドライブのプレビュー画面（全ページスクロール対応）を埋め込み
   wrapper.innerHTML = `<iframe src="${sharedUrl}" style="width:100%; height:100%; border:none; background-color:#fff;" allow="fullscreen"></iframe>`;
   wrapper.style.border = "none";
 }
@@ -362,7 +388,7 @@ if (joinButton) {
     if (joinScreen) joinScreen.style.display = "none";
     if (roomScreen) roomScreen.style.display = "flex";
     if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
-    if (myLocalName) myLocalName.textContent = `${name} (Apple User)`;
+    if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
 
     // 参加者監視
     listenParticipants((participants) => {
