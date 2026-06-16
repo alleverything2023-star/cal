@@ -1,4 +1,4 @@
-import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages } from "./room.js";
+import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages, sendPdfToFirebase, listenPdfData } from "./room.js";
 import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
@@ -48,7 +48,7 @@ function setVideoSrc(videoElement, stream) {
 }
 
 async function init() {
-  // 【UI調整】入室画面が端末からはみ出さないように、高さを自動調整するスタイルを注入
+  // 入室画面が端末からはみ出さないように調整
   if (joinScreen) {
     joinScreen.style.display = "flex";
     joinScreen.style.flexDirection = "column";
@@ -57,9 +57,8 @@ async function init() {
     joinScreen.style.minHeight = "100vh";
     joinScreen.style.padding = "10px";
     joinScreen.style.boxSizing = "border-box";
-    joinScreen.style.overflowY = "auto"; // 万が一のスクロール対応
+    joinScreen.style.overflowY = "auto";
 
-    // 入室画面の中にある白い（または暗い）コンテナボックスを取得してフィットさせる
     const joinContainer = joinScreen.querySelector(".join-container") || joinScreen.children[0];
     if (joinContainer) {
       joinContainer.style.maxHeight = "95vh";
@@ -71,12 +70,42 @@ async function init() {
       joinContainer.style.margin = "auto";
     }
 
-    // プレビュービデオのサイズが大きすぎてはみ出るのを防ぐ
     if (myPreviewVideo) {
       myPreviewVideo.style.maxWidth = "100%";
       myPreviewVideo.style.maxHeight = "200px"; 
       myPreviewVideo.style.borderRadius = "8px";
       myPreviewVideo.style.objectFit = "cover";
+    }
+  }
+
+  // 【新規：UI改造】2本目のタブ（通常は設定や別画面）を「PDF共有ビューア」に書き換える
+  // ※HTML側の構造（2番目のタブボタンに対応するコンテンツエリア）を自動追従
+  if (tabContents && tabContents[1]) {
+    const pdfTabArea = tabContents[1];
+    pdfTabArea.innerHTML = `
+      <div style="display:flex; flex-direction:column; height:100%; padding:10px; box-sizing:border-box;">
+        <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <label style="background-color:#007bff; color:white; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px;">
+            PDFファイルを選択して共有
+            <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;">
+          </label>
+          <span id="pdfFileNameLabel" style="font-size:12px; color:#aaa; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中のファイルはありません</span>
+        </div>
+        <div id="pdfViewerWrapper" style="flex:1; border:2px dashed #444; border-radius:6px; display:flex; justify-content:center; align-items:center; overflow:hidden; background-color:#222; min-height:300px;">
+          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">ここに共有されたPDFが表示されます<br>(各端末で自由にめくれます)</p>
+        </div>
+      </div>
+    `;
+
+    // 2番目のタブボタンのテキストを「PDF共有」に変更
+    if (tabButtons && tabButtons[1]) {
+      tabButtons[1].textContent = "PDF共有";
+    }
+
+    // PDF選択時のイベントリスナーを設定
+    const pdfFileInput = document.getElementById("pdfFileInput");
+    if (pdfFileInput) {
+      pdfFileInput.addEventListener("change", handlePdfSelect);
     }
   }
 
@@ -89,101 +118,109 @@ async function init() {
     await updateDeviceList();
   } catch (e) { 
     console.error("初期化エラー:", e);
-    alert("カメラ・マイクの起動に失敗しました。iPadの設定＞Safari＞カメラのアクセス権が「許可」になっているか確認してください。"); 
+    alert("カメラ・マイクの起動に失敗しました。"); 
+  }
+}
+
+// 【新規】PDFファイルがローカルで選択された時の処理
+function handlePdfSelect(e) {
+  const file = e.target.files[0];
+  if (!file || file.type !== "application/pdf") {
+    alert("PDFファイルを選択してください。");
+    return;
+  }
+
+  // 容量制限アラート（Firebaseの限界を考慮し、推奨3MB以下、最大5MB程度）
+  if (file.size > 5 * 1024 * 1024) {
+    alert("ファイルサイズが大きすぎます。5MB以下のPDFを選択してください。");
+    return;
+  }
+
+  const label = document.getElementById("pdfFileNameLabel");
+  if (label) label.textContent = "アップロード中...";
+
+  const reader = new FileReader();
+  reader.onload = async function(event) {
+    const base64Data = event.target.result; // data:application/pdf;base64,xxxx...
+    try {
+      await sendPdfToFirebase(base64Data, file.name);
+      console.log("PDFの送信が完了しました:", file.name);
+    } catch(err) {
+      console.error("PDF送信エラー:", err);
+      alert("PDFの共有に失敗しました。データサイズを小さくしてください。");
+      if (label) label.textContent = "共有失敗";
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// 【新規】FirebaseからPDFデータが降ってきた時に画面上に描写する処理
+function renderPdfBlob(base64Data, fileName, senderId) {
+  const wrapper = document.getElementById("pdfViewerWrapper");
+  const label = document.getElementById("pdfFileNameLabel");
+  if (!wrapper) return;
+
+  if (label) {
+    label.textContent = fileName + (senderId === myId ? " (あなた)" : "");
+  }
+
+  // Base64からBlob形式のURL（一時的なファイルパス）を生成して埋め込む
+  try {
+    const byteCharacters = atob(base64Data.split(",")[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: "application/pdf" });
+    const blobUrl = URL.createObjectURL(blob);
+
+    // iPadや標準ブラウザのPDF実装を利用するために iframe を生成して全画面埋め込み
+    wrapper.innerHTML = `<iframe src="${blobUrl}" style="width:100%; height:100%; border:none;" allow="fullscreen"></iframe>`;
+    wrapper.style.border = "none";
+    
+    // 誰かがPDFを共有したことをチャット画面等に切り替えなくても気付けるように通知（任意）
+    console.log(`新しいPDF資料 [${fileName}] が共有されました`);
+  } catch (err) {
+    console.error("PDF展開エラー:", err);
+    wrapper.innerHTML = `<p style="color:#ff6b6b; padding:20px; text-align:center;">PDFの読み込みに失敗しました。</p>`;
   }
 }
 
 async function handleDeviceChange() {
   if (!localStream) return;
-  
-  localStream.getTracks().forEach(track => { 
-    try { track.stop(); } catch(err) { console.error(err); }
-  });
+  localStream.getTracks().forEach(track => { try { track.stop(); } catch(err) {} });
   localStream = null;
 
   try {
-    const targetCam = (cameraSelect && cameraSelect.value) ? cameraSelect.value : null;
-    const targetMic = (micSelect && micSelect.value) ? micSelect.value : null;
-    
+    const targetCam = cameraSelect?.value || null;
+    const targetMic = micSelect?.value || null;
     const newStream = await getLocalStream(targetCam, targetMic);
     localStream = newStream;
-    const newVideoTrack = localStream.getVideoTracks()[0];
-    const newAudioTrack = localStream.getAudioTracks()[0];
     
     if (!isJoined) {
       if (myPreviewVideo) setVideoSrc(myPreviewVideo, localStream);
-      if (newVideoTrack && initCameraToggle) newVideoTrack.enabled = initCameraToggle.checked;
-      if (newAudioTrack && initMicToggle) newAudioTrack.enabled = initMicToggle.checked;
     } else {
       if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
-      if (newVideoTrack && myCamBtn) newVideoTrack.enabled = myCamBtn.classList.contains("on");
-      if (newAudioTrack && myMicBtn) newAudioTrack.enabled = myMicBtn.classList.contains("on");
+      const vTrack = localStream.getVideoTracks()[0];
+      const aTrack = localStream.getAudioTracks()[0];
       
       for (const id in peerConnections) {
         const pc = peerConnections[id];
         if (!pc) continue;
-        const senders = pc.getSenders();
-        senders.forEach(sender => {
-          if (sender.track && sender.track.kind === "video" && newVideoTrack) {
-            sender.replaceTrack(newVideoTrack).catch(e => console.error(e));
-          }
-          if (sender.track && sender.track.kind === "audio" && newAudioTrack) {
-            sender.replaceTrack(newAudioTrack).catch(e => console.error(e));
-          }
+        pc.getSenders().forEach(sender => {
+          if (sender.track?.kind === "video" && vTrack) sender.replaceTrack(vTrack);
+          if (sender.track?.kind === "audio" && aTrack) sender.replaceTrack(aTrack);
         });
       }
     }
-  } catch (e) { 
-    console.error("デバイス切り替え失敗:", e); 
-  }
+  } catch (e) { console.error(e); }
 }
 
 if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
 if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
-
-if (settingsBtn) settingsBtn.addEventListener("click", () => { if (settingsModal) settingsModal.style.display = "flex"; });
-if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", () => { if (settingsModal) settingsModal.style.display = "none"; });
-
-if (themeToggleBtn) {
-  themeToggleBtn.addEventListener("click", () => {
-    const isDark = document.body.classList.contains("dark-theme");
-    if (isDark) {
-      document.body.classList.replace("dark-theme", "light-theme");
-      themeToggleBtn.textContent = "ダークモードに切替";
-    } else {
-      document.body.classList.replace("light-theme", "dark-theme");
-      themeToggleBtn.textContent = "ライトモードに切替";
-    }
-  });
-}
-
-if (updateNameBtn) {
-  updateNameBtn.addEventListener("click", async () => {
-    if (!newNameInput) return;
-    const newName = newNameInput.value.trim();
-    if (!newName) return;
-    await updateMyName(newName);
-    if (myLocalName) myLocalName.textContent = `${newName} (あなた)`;
-    currentUserName = newName;
-    newNameInput.value = "";
-    alert("名前を更新しました");
-  });
-}
-
-if (layoutToggleBtn) {
-  layoutToggleBtn.addEventListener("click", () => {
-    if (appLayout) {
-      appLayout.classList.toggle("layout-default");
-      appLayout.classList.toggle("layout-sidebar");
-    }
-  });
-}
-
-function updateGridClass() {
-  if (!videoGrid) return;
-  const cardCount = videoGrid.querySelectorAll(".videoCard").length;
-  videoGrid.className = "count-" + (cardCount <= 4 ? cardCount : "many");
-}
+if (settingsBtn) settingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "flex"));
+if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "none"));
 
 if (joinButton) {
   joinButton.addEventListener("click", async () => {
@@ -191,16 +228,6 @@ if (joinButton) {
     const name = nameInput.value.trim();
     if (!name) return alert("名前を入力してください");
     currentUserName = name;
-    
-    const videoTrack = localStream.getVideoTracks()[0];
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (videoTrack && initCameraToggle) videoTrack.enabled = initCameraToggle.checked;
-    if (audioTrack && initMicToggle) audioTrack.enabled = initMicToggle.checked;
-
-    if (myCamBtn && initCameraToggle) myCamBtn.classList.toggle("on", initCameraToggle.checked);
-    if (myCamStatus && initCameraToggle) myCamStatus.classList.toggle("on", initCameraToggle.checked);
-    if (myMicBtn && initMicToggle) myMicBtn.classList.toggle("on", initMicToggle.checked);
-    if (myMicStatus && initMicToggle) myMicStatus.classList.toggle("on", initMicToggle.checked);
 
     await joinRoom(name);
     isJoined = true;
@@ -209,55 +236,29 @@ if (joinButton) {
     if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
     if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
 
-    // リアルタイム参加者監視の開始
     listenParticipants((participants) => {
       for (const id in peerConnections) {
         if (!participants[id]) {
           closeP2P(id);
-          const card = document.getElementById(`card-${id}`);
-          if (card) { card.remove(); updateGridClass(); }
+          document.getElementById(`card-${id}`)?.remove();
         }
       }
       for (const id in participants) {
-        const p = participants[id];
         if (id !== myId && !peerConnections[id]) {
-          startP2P(id, localStream, (peerId, remoteStream) => { addVideoCard(peerId, p.name, remoteStream); });
+          startP2P(id, localStream, (peerId, remoteStream) => { addVideoCard(peerId, participants[peerId].name, remoteStream); });
         }
-        const existingCard = document.getElementById(`card-${id}`);
-        if (existingCard) { existingCard.querySelector(".videoName").textContent = p.name; }
       }
       updateGridClass();
     });
 
-    // Firebaseからのリアルタイムチャット受信を開始
     listenChatMessages((sender, text) => {
-      const isMe = (sender === currentUserName);
-      appendMessage(sender, text, isMe);
+      appendMessage(sender, text, sender === currentUserName);
     });
-  });
-}
 
-if (myCamBtn) {
-  myCamBtn.addEventListener("click", () => {
-    if (!localStream) return;
-    const t = localStream.getVideoTracks()[0];
-    if (t) { 
-      t.enabled = !t.enabled; 
-      myCamBtn.classList.toggle("on", t.enabled); 
-      if (myCamStatus) myCamStatus.classList.toggle("on", t.enabled); 
-    }
-  });
-}
-
-if (myMicBtn) {
-  myMicBtn.addEventListener("click", () => {
-    if (!localStream) return;
-    const t = localStream.getAudioTracks()[0];
-    if (t) { 
-      t.enabled = !t.enabled; 
-      myMicBtn.classList.toggle("on", t.enabled); 
-      if (myMicStatus) myMicStatus.classList.toggle("on", t.enabled); 
-    }
+    // 【新規】FirebaseからPDF共有データが送られてくるのをリアルタイム監視開始
+    listenPdfData((base64Data, fileName, senderId) => {
+      renderPdfBlob(base64Data, fileName, senderId);
+    });
   });
 }
 
@@ -268,137 +269,67 @@ function addVideoCard(id, name, stream) {
   card.id = `card-${id}`;
   card.innerHTML = `
     <div class="video-wrapper"><video autoplay playsinline></video></div>
-    <div class="videoControlBar">
-      <span class="videoName">${name}</span>
-      <div class="btn-group">
-        <div id="camStatus-${id}" class="status-indicator on">
-          <svg class="icon-svg" viewBox="0 0 24 24">
-            <path d="M15 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2z"/>
-            <polygon points="17 11 22 8 22 16 17 13"/>
-            <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-          </svg>
-        </div>
-        <div id="micStatus-${id}" class="status-indicator on">
-          <svg class="icon-svg" viewBox="0 0 24 24">
-            <rect x="9" y="2" width="6" height="11" rx="3"/>
-            <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
-            <line class="slash-line" x1="3" y1="3" x2="21" y2="21" />
-          </svg>
-        </div>
-      </div>
-    </div>
+    <div class="videoControlBar"><span class="videoName">${name}</span></div>
   `;
-  
-  const targetVideo = card.querySelector("video");
-  setVideoSrc(targetVideo, stream);
-  
+  setVideoSrc(card.querySelector("video"), stream);
   videoGrid.appendChild(card);
   updateGridClass();
-
-  const camIndicator = card.querySelector(`#camStatus-${id}`);
-  const micIndicator = card.querySelector(`#micStatus-${id}`);
-  const intervalId = setInterval(() => {
-    if (!document.getElementById(`card-${id}`)) {
-      clearInterval(intervalId);
-      return;
-    }
-    const vTrack = stream.getVideoTracks()[0];
-    const aTrack = stream.getAudioTracks()[0];
-    if (vTrack && camIndicator) camIndicator.classList.toggle("on", vTrack.enabled && !vTrack.muted);
-    if (aTrack && micIndicator) micIndicator.classList.toggle("on", aTrack.enabled && !aTrack.muted);
-  }, 500);
 }
 
-// タブ切り替え
+function updateGridClass() {
+  if (!videoGrid) return;
+  videoGrid.className = "count-" + videoGrid.querySelectorAll(".videoCard").length;
+}
+
 tabButtons.forEach(button => {
   button.addEventListener("click", () => {
     tabButtons.forEach(btn => btn.classList.remove("active"));
     button.classList.add("active");
-
     const targetTab = button.getAttribute("data-tab");
     tabContents.forEach(content => {
-      content.classList.remove("active");
-      if (content.id === `tabContent-${targetTab}`) {
-        content.classList.add("active");
-      }
+      content.classList.toggle("active", content.id === `tabContent-${targetTab}`);
     });
-
-    if (targetTab === "chat") {
-      scrollToBottom();
-    }
+    if (targetTab === "chat") scrollToBottom();
   });
 });
 
-// チャット送信処理
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
   if (!text) return;
-
-  // Firebase経由で全員に向けてメッセージを送信
   sendChatMessageToFirebase(currentUserName, text);
-
   chatInput.value = "";
   chatInput.focus();
 }
 
 function appendMessage(sender, text, isMe = false) {
   if (!chatMessages) return;
-  
-  const messageWrapper = document.createElement("div");
-  messageWrapper.style.display = "flex";
-  messageWrapper.style.flexDirection = "column";
-  messageWrapper.style.margin = "8px 0";
-  messageWrapper.style.width = "100%";
-  if (isMe) messageWrapper.style.alignItems = "flex-end";
+  const wrap = document.createElement("div");
+  wrap.style.display = "flex";
+  wrap.style.flexDirection = "column";
+  wrap.style.margin = "8px 0";
+  if (isMe) wrap.style.alignItems = "flex-end";
 
-  const nameLabel = document.createElement("span");
-  nameLabel.className = "chat-user-name";
-  nameLabel.textContent = isMe ? "あなた" : sender;
-  nameLabel.style.fontSize = "12px";
-  nameLabel.style.color = "#aaa";
-  nameLabel.style.marginBottom = "2px";
-  messageWrapper.appendChild(nameLabel);
+  const lbl = document.createElement("span");
+  lbl.textContent = isMe ? "あなた" : sender;
+  lbl.style.fontSize = "12px"; lbl.style.color = "#aaa"; lbl.style.marginBottom = "2px";
+  wrap.appendChild(lbl);
 
-  const bubble = document.createElement("div");
-  bubble.className = `chat-bubble ${isMe ? "my-msg" : ""}`;
-  bubble.textContent = text;
-  
-  // 【超重要：メッセージ不可視対策】文字が絶対に隠れないようにスタイルを強制上書き
-  bubble.style.padding = "10px 14px";
-  bubble.style.borderRadius = "14px";
-  bubble.style.maxWidth = "75%";
-  bubble.style.wordBreak = "break-all";
-  bubble.style.fontSize = "14px";
-  bubble.style.display = "inline-block";
-
+  const bbl = document.createElement("div");
+  bbl.textContent = text;
+  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%"; bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
   if (isMe) {
-    bubble.style.backgroundColor = "#007bff"; // 自分のメッセージは青
-    bubble.style.color = "#ffffff";
+    bbl.style.backgroundColor = "#007bff"; bbl.style.color = "white";
   } else {
-    bubble.style.backgroundColor = "#e9ecef"; // 相手のメッセージは薄いグレー
-    bubble.style.color = "#333333";
+    bbl.style.backgroundColor = "#e9ecef"; bbl.style.color = "#333";
   }
-  
-  messageWrapper.appendChild(bubble);
-  chatMessages.appendChild(messageWrapper);
-  
+  wrap.appendChild(bbl);
+  chatMessages.appendChild(wrap);
   scrollToBottom();
 }
 
-function scrollToBottom() {
-  if (chatMessages) {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-}
-
+function scrollToBottom() { if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight; }
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
-if (chatInput) {
-  chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.isComposing) {
-      sendChatMessage();
-    }
-  });
-}
+if (chatInput) chatInput.addEventListener("keydown", (e) => e.key === "Enter" && !e.isComposing && sendChatMessage());
 
 init();
