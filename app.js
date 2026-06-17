@@ -3,11 +3,10 @@ import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 // ==========================================
-// Google Drive Picker API の設定値（最新情報に修正完了）
+// Google Drive Picker API の設定値
 // ==========================================
 const DEVELOPER_KEY = "AIzaSyB17yEv-f8QEZZso3hRLmKr2p4XelITRog"; 
 const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
-const APP_ID = "421359626063";
 
 // ドライブ選択画面に必要なスコープ
 const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
@@ -64,7 +63,7 @@ function setVideoSrc(videoElement, stream) {
   videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
 }
 
-// Google APIライブラリの読み込み関数
+// Google APIライブラリの読み込み関数（★picker単体ロードに修正）
 function loadGoogleLibraries() {
   return new Promise((resolve) => {
     if (gapiInited) {
@@ -76,7 +75,7 @@ function loadGoogleLibraries() {
       resolve(false);
       return;
     }
-    gapi.load('client:picker', () => {
+    gapi.load('picker', () => {
       gapiInited = true;
       resolve(true);
     });
@@ -115,7 +114,7 @@ async function init() {
     }
   }
 
-  // 【PDF共有タブのUI構築：アカウント切替ボタンも完全搭載】
+  // 【PDF共有タブのUI構築】
   if (tabContents && tabContents[1]) {
     const pdfTabArea = tabContents[1];
     pdfTabArea.innerHTML = `
@@ -165,9 +164,7 @@ async function init() {
   }
 }
 
-// ==========================================
 // Googleドライブの選択ポップアップ制御
-// ==========================================
 async function handleDrivePickerOpen() {
   const ready = await loadGoogleLibraries();
   if (!ready || typeof google === 'undefined') {
@@ -217,8 +214,12 @@ function handleSwitchAccount() {
   }
 }
 
-// ピッカー選択画面の作成・表示
+// ピッカー選択画面の作成・表示（★デバッグログ強化＆setAppId削除）
 function createPicker() {
+  // ★コンソールでの生存確認ログ
+  console.log("【GAPI】google =", typeof google !== 'undefined' ? google : "undefined");
+  console.log("【GAPI】google.picker =", typeof google !== 'undefined' ? google.picker : "undefined");
+
   if (!gapiInited || !accessToken) {
     alert("Googleドライブの準備がまだ完了していません。もう一度お試しください。");
     return;
@@ -230,18 +231,25 @@ function createPicker() {
       .setSelectFolderEnabled(false)   
       .setShowFolders(true);           
 
+    // ★ .setAppId(APP_ID) を削除
     const picker = new google.picker.PickerBuilder()
       .addView(docsView)
       .setOAuthToken(accessToken)
       .setDeveloperKey(DEVELOPER_KEY)
-      .setAppId(APP_ID)
       .setCallback(pickerCallback)
       .build();
       
     picker.setVisible(true);
   } catch (err) {
+    // ★本当の例外内容を暴くための詳細アラート＆ロギング
     console.error("Picker起動エラー:", err);
-    alert("ファイル選択画面を開けませんでした。APIキーの制限設定などをご確認ください。");
+    if (err && err.stack) console.error(err.stack);
+
+    alert(
+      "Picker起動エラーが発生しました。\n\n" +
+      "【エラー内容】\n" + String(err) + "\n\n" +
+      "【詳細データ】\n" + JSON.stringify(err, null, 2)
+    );
   }
 }
 
@@ -314,7 +322,7 @@ async function handleDeviceChange() {
 if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
 if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
 
-// 右上の操作コントロールボタン（完全保護）
+// 右上の操作コントロールボタン
 if (settingsBtn) {
   settingsBtn.addEventListener("click", () => {
     if (settingsModal) settingsModal.style.display = "flex";
@@ -495,7 +503,7 @@ function appendMessage(sender, text, isMe = false) {
 
   const bbl = document.createElement("div");
   bbl.textContent = text;
-  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%", bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
+  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%"; bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
   if (isMe) {
     bbl.style.backgroundColor = "#007bff"; bbl.style.color = "white";
   } else {
