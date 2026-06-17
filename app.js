@@ -5,7 +5,7 @@ import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 // ==========================================
 // Google Drive Picker API の設定値
 // ==========================================
-const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
+const DEVELOPER_KEY = "AIzaSyB17yEv-f8QEZZso3hRLmKr2p4XelITRog"; 
 const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
 const APP_ID = "421359626063";
 
