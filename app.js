@@ -63,7 +63,7 @@ function setVideoSrc(videoElement, stream) {
   videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
 }
 
-// Google APIライブラリの読み込み関数（★picker単体ロードに修正）
+// Google APIライブラリの読み込み関数（★picker単体ロード）
 function loadGoogleLibraries() {
   return new Promise((resolve) => {
     if (gapiInited) {
@@ -214,9 +214,8 @@ function handleSwitchAccount() {
   }
 }
 
-// ピッカー選択画面の作成・表示（★デバッグログ強化＆setAppId削除）
+// ピッカー選択画面の作成・表示（★原因の排除＆デバッグログ配置）
 function createPicker() {
-  // ★コンソールでの生存確認ログ
   console.log("【GAPI】google =", typeof google !== 'undefined' ? google : "undefined");
   console.log("【GAPI】google.picker =", typeof google !== 'undefined' ? google.picker : "undefined");
 
@@ -226,12 +225,12 @@ function createPicker() {
   }
   
   try {
+    // 💡 エラーの犯人だった「.setShowFolders(true)」をきれいに削除しました！
     const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
       .setMimeTypes("application/pdf") 
-      .setSelectFolderEnabled(false)   
-      .setShowFolders(true);           
+      .setSelectFolderEnabled(false);           
 
-    // ★ .setAppId(APP_ID) を削除
+    // 💡 トラブル予防として「.setAppId(APP_ID)」も安全に削除済みです。
     const picker = new google.picker.PickerBuilder()
       .addView(docsView)
       .setOAuthToken(accessToken)
@@ -241,7 +240,6 @@ function createPicker() {
       
     picker.setVisible(true);
   } catch (err) {
-    // ★本当の例外内容を暴くための詳細アラート＆ロギング
     console.error("Picker起動エラー:", err);
     if (err && err.stack) console.error(err.stack);
 
