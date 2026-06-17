@@ -13,7 +13,6 @@ const APP_ID = "421359626063";
 const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
 
 let accessToken = null;
-let pickerInited = false;
 let gapiInited = false;
 
 let localStream = null;
@@ -65,6 +64,25 @@ function setVideoSrc(videoElement, stream) {
   videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
 }
 
+// Google APIライブラリの読み込み関数
+function loadGoogleLibraries() {
+  return new Promise((resolve) => {
+    if (gapiInited) {
+      resolve(true);
+      return;
+    }
+    if (typeof gapi === 'undefined') {
+      console.error("gapiライブラリがindex.htmlで読み込まれていません");
+      resolve(false);
+      return;
+    }
+    gapi.load('client:picker', () => {
+      gapiInited = true;
+      resolve(true);
+    });
+  });
+}
+
 // アプリの初期化
 async function init() {
   // 入室画面のレイアウト崩れ防止
@@ -97,7 +115,7 @@ async function init() {
     }
   }
 
-  // 【PDF共有タブのUIを強制上書き：緑ボタンと赤ボタンを絶対にセットで生成】
+  // 【PDF共有タブのUI構築：アカウント切替ボタンも完全搭載】
   if (tabContents && tabContents[1]) {
     const pdfTabArea = tabContents[1];
     pdfTabArea.innerHTML = `
@@ -132,12 +150,8 @@ async function init() {
     }
   }
 
-  // Google APIライブラリのバックグラウンド初期化起動
-  try {
-    if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
-      gapi.load('client:picker', () => { gapiInited = true; });
-    }
-  } catch (err) { console.error("Googleライブラリロード失敗:", err); }
+  // バックグラウンドで初期ライブラリロードを試みる
+  await loadGoogleLibraries();
 
   try {
     localStream = await getLocalStream();
@@ -152,15 +166,22 @@ async function init() {
 }
 
 // ==========================================
-// Googleドライブの選択ポップアップ制御
+// Googleドライブの選択ポップアップ制御（無反応対策強化版）
 // ==========================================
 async function handleDrivePickerOpen() {
+  // ボタンが押された瞬間に、Googleライブラリが本当に準備できているか再チェック＆強制起動
+  const ready = await loadGoogleLibraries();
+  if (!ready || typeof google === 'undefined') {
+    alert("Googleのシステムを読み込み中です。3秒ほど待ってからもう一度押してください。");
+    return;
+  }
+
   if (!accessToken) {
     try {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        prompt: 'select_account', // ログイン状態があっても必ずアカウント選択画面を出す設定
+        prompt: 'select_account', 
         callback: async (response) => {
           if (response.error !== undefined) {
             throw response;
@@ -172,14 +193,14 @@ async function handleDrivePickerOpen() {
       tokenClient.requestAccessToken();
     } catch (err) {
       console.error("Google認証エラー:", err);
-      alert("Googleアカウントの認証に失敗しました。");
+      alert("認証画面の起動に失敗しました。");
     }
   } else {
     createPicker();
   }
 }
 
-// 現在保持しているGoogleの認証トークンを解除してクリアする処理
+// アカウントの切り替え処理
 function handleSwitchAccount() {
   if (accessToken) {
     try {
@@ -200,24 +221,29 @@ function handleSwitchAccount() {
 // ピッカー選択画面の作成・表示
 function createPicker() {
   if (!gapiInited || !accessToken) {
-    alert("Googleドライブの読み込み中です。もう一度お試しください。");
+    alert("Googleドライブの準備がまだ完了していません。もう一度お試しください。");
     return;
   }
   
-  const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
-    .setMimeTypes("application/pdf") 
-    .setSelectFolderEnabled(false)   
-    .setShowFolders(true);           
+  try {
+    const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+      .setMimeTypes("application/pdf") 
+      .setSelectFolderEnabled(false)   
+      .setShowFolders(true);           
 
-  const picker = new google.picker.PickerBuilder()
-    .addView(docsView)
-    .setOAuthToken(accessToken)
-    .setDeveloperKey(DEVELOPER_KEY)
-    .setAppId(APP_ID)
-    .setCallback(pickerCallback)
-    .build();
-    
-  picker.setVisible(true);
+    const picker = new google.picker.PickerBuilder()
+      .addView(docsView)
+      .setOAuthToken(accessToken)
+      .setDeveloperKey(DEVELOPER_KEY)
+      .setAppId(APP_ID)
+      .setCallback(pickerCallback)
+      .build();
+      
+    picker.setVisible(true);
+  } catch (err) {
+    console.error("Picker起動エラー:", err);
+    alert("ファイル選択画面を開けませんでした。APIキーの制限設定などをご確認ください。");
+  }
 }
 
 // ユーザーがドライブ上のPDFファイルを選んだ時の処理
