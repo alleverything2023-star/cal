@@ -5,7 +5,8 @@ import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 // ==========================================
 // Google Drive Picker API の設定値
 // ==========================================
-const DEVELOPER_KEY = "AIzaSyB17yEv-f8QEZZso3hRLmKr2p4XelITRog"; 
+// ★ご指定のPicker用キーに変更しました
+const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
 const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
 
 // ドライブ選択画面に必要なスコープ
@@ -63,7 +64,7 @@ function setVideoSrc(videoElement, stream) {
   videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
 }
 
-// Google APIライブラリの読み込み関数（★picker単体ロード）
+// Google APIライブラリの読み込み関数
 function loadGoogleLibraries() {
   return new Promise((resolve) => {
     if (gapiInited) {
@@ -214,23 +215,17 @@ function handleSwitchAccount() {
   }
 }
 
-// ピッカー選択画面の作成・表示（★原因の排除＆デバッグログ配置）
+// ピッカー選択画面の作成・表示（★ご指定のシンプル構成に変更）
 function createPicker() {
-  console.log("【GAPI】google =", typeof google !== 'undefined' ? google : "undefined");
-  console.log("【GAPI】google.picker =", typeof google !== 'undefined' ? google.picker : "undefined");
-
   if (!gapiInited || !accessToken) {
-    alert("Googleドライブの準備がまだ完了していません。もう一度お試しください。");
+    alert("Googleドライブの準備がまだ完了していません。");
     return;
   }
   
   try {
-    // 💡 エラーの犯人だった「.setShowFolders(true)」をきれいに削除しました！
-    const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
-      .setMimeTypes("application/pdf") 
-      .setSelectFolderEnabled(false);           
+    const docsView = new google.picker.DocsView()
+      .setMimeTypes("application/pdf");
 
-    // 💡 トラブル予防として「.setAppId(APP_ID)」も安全に削除済みです。
     const picker = new google.picker.PickerBuilder()
       .addView(docsView)
       .setOAuthToken(accessToken)
@@ -240,14 +235,8 @@ function createPicker() {
       
     picker.setVisible(true);
   } catch (err) {
-    console.error("Picker起動エラー:", err);
-    if (err && err.stack) console.error(err.stack);
-
-    alert(
-      "Picker起動エラーが発生しました。\n\n" +
-      "【エラー内容】\n" + String(err) + "\n\n" +
-      "【詳細データ】\n" + JSON.stringify(err, null, 2)
-    );
+    console.error(err);
+    alert(String(err));
   }
 }
 
