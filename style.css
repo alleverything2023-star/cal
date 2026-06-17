@@ -110,56 +110,68 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .tab-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
 .tab-btn.active { background: var(--bg-main); color: var(--accent); font-weight: bold; }
 
+
 @media (max-width: 768px) {
+
+  body,
+  html {
+    overflow-y: auto;
+    height: auto;
+  }
+
+  #roomScreen {
+    overflow-y: auto;
+    height: auto;
+  }
 
   .main-content {
     flex-direction: column;
+    height: auto;
+    min-height: 100vh;
   }
 
   .layout-default #leftContainer,
   .layout-default #rightContainer,
   .layout-sidebar #leftContainer,
   .layout-sidebar #rightContainer {
-    flex: none;
     width: 100%;
+    height: auto;
+    flex: none;
   }
 
   .layout-default #leftContainer,
   .layout-sidebar #leftContainer {
-    height: 55%;
+    min-height: 300px;
   }
 
   .layout-default #rightContainer,
   .layout-sidebar #rightContainer {
-    height: 45%;
+    min-height: 500px;
     border-left: none;
     border-top: 1px solid #2b2d31;
   }
 
-  .layout-default #videoGrid {
-    padding: 10px;
-    gap: 10px;
+  #videoGrid {
+    min-height: 300px;
   }
 
-  .layout-default #videoGrid.count-1,
-  .layout-default #videoGrid.count-2,
-  .layout-default #videoGrid.count-3,
-  .layout-default #videoGrid.count-4,
-  .layout-default #videoGrid.count-many {
-    grid-template-columns: 1fr;
-  }
-
-  .layout-default #videoGrid.count-3 .videoCard:nth-child(1) {
-    grid-column: auto;
-    width: 100%;
-  }
-
-  .side-panel-header {
-    margin-bottom: 10px;
+  #pdfViewerWrapper {
+    min-height: 500px;
   }
 
   .side-tab-bar {
-    height: 55px;
     min-height: 55px;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
