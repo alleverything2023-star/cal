@@ -114,81 +114,72 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 
   body,
   html {
-    overflow-y: auto;
-    overflow-x: hidden;
-    height: auto;
+    overflow: hidden; /* 全体のスクロールを止め、アプリ風の挙動にします */
+    height: 100dvh;
   }
 
   .app-layout {
-    height: auto;
-    min-height: 100dvh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
   }
 
+  /* 通話中のメインコンテンツ全体 */
   .main-content {
     flex-direction: column;
-    height: auto;
-    overflow: visible;
+    height: calc(100dvh - 80px); /* 下部コントロールバー（仮に80px）の分を引いた高さ */
+    overflow: hidden;
   }
 
+  /* 上側のビデオエリア */
   .layout-default #leftContainer,
   .layout-sidebar #leftContainer {
     width: 100%;
     flex: none;
-    min-height: 220px;
-    max-height: 40vh;
+    height: 35vh; /* ビデオの高さを固定 */
+    max-height: 35vh;
   }
 
+  /* 下側のチャット・タブエリア */
   .layout-default #rightContainer,
   .layout-sidebar #rightContainer {
     width: 100%;
-    flex: none;
+    flex: 1; /* 残りの高さをすべて使う */
     border-left: none;
     border-top: 1px solid #2b2d31;
-    min-height: 60vh;
     height: auto;
-    overflow: visible;
+    overflow: hidden; /* 中身だけをスクロールさせる */
+    display: flex;
+    flex-direction: column; /* タブと中身を縦に並べる */
   }
 
-  .side-panel-header {
-    flex-shrink: 0;
+  /* タブのコンテンツエリア（チャットのメッセージなど） */
+  .side-panel-content {
+    flex: 1;
+    overflow-y: auto; /* ここをスクロール可能にする */
   }
 
-  .side-panel-body {
-    flex: none;
-    overflow: visible;
-  }
-
-  .tab-content {
-    min-height: 400px;
-  }
-
-  #pdfViewerWrapper {
-    height: 60vh !important;
-    min-height: 350px;
-  }
-
+  /* チャットのメッセージ一覧をスクロール可能に */
   .chat-messages {
-    min-height: 250px;
+    flex: 1;
+    overflow-y: auto;
   }
 
+  /* タブボタンの一覧（横並びにして常に見えるようにする） */
   .side-tab-bar {
-    position: sticky;
-    bottom: 0;
-    background: var(--bg-card);
-    z-index: 100;
-    margin-top: 10px;
-    padding-top: 8px;
+    flex-direction: row; /* 横並びに変更 */
+    width: 100%;
+    height: 50px;
+    border-left: none;
+    border-top: 1px solid #2b2d31;
+    overflow-x: auto; /* ボタンが多ければ横スクロール */
   }
 
-  .layout-default #videoGrid,
-  .layout-sidebar #videoGrid {
+  .tab-btn {
+    flex: 1;
     padding: 8px;
-    gap: 8px;
-  }
-
-  .videoCard {
-    max-width: 100%;
+    flex-direction: column; /* アイコンと文字を縦並びに */
+    font-size: 1rem;
   }
 }
-
 
