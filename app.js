@@ -3,7 +3,7 @@ import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 // ==========================================
-// Google Drive Picker API の設定値
+// Google Drive Picker API の設定値（最新情報に修正完了）
 // ==========================================
 const DEVELOPER_KEY = "AIzaSyB17yEv-f8QEZZso3hRLmKr2p4XelITRog"; 
 const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
@@ -166,10 +166,9 @@ async function init() {
 }
 
 // ==========================================
-// Googleドライブの選択ポップアップ制御（無反応対策強化版）
+// Googleドライブの選択ポップアップ制御
 // ==========================================
 async function handleDrivePickerOpen() {
-  // ボタンが押された瞬間に、Googleライブラリが本当に準備できているか再チェック＆強制起動
   const ready = await loadGoogleLibraries();
   if (!ready || typeof google === 'undefined') {
     alert("Googleのシステムを読み込み中です。3秒ほど待ってからもう一度押してください。");
@@ -496,7 +495,7 @@ function appendMessage(sender, text, isMe = false) {
 
   const bbl = document.createElement("div");
   bbl.textContent = text;
-  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%"; bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
+  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%", bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
   if (isMe) {
     bbl.style.backgroundColor = "#007bff"; bbl.style.color = "white";
   } else {
