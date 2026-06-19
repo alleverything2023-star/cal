@@ -110,6 +110,50 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .tab-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
 .tab-btn.active { background: var(--bg-main); color: var(--accent); font-weight: bold; }
 
+#imageBtn{
+  width:44px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  background:var(--bg-main);
+  color:var(--text-main);
+  font-size:18px;
+}
+
+.chat-image{
+  max-width:220px;
+  border-radius:10px;
+  cursor:pointer;
+  display:block;
+}
+
+.image-viewer{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.9);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
+
+.image-viewer img{
+  max-width:95%;
+  max-height:95%;
+}
+
+#closeImageViewer{
+  position:absolute;
+  top:20px;
+  right:20px;
+  width:50px;
+  height:50px;
+  border:none;
+  border-radius:50%;
+  cursor:pointer;
+  font-size:22px;
+}
+
 @media (max-width: 768px) {
 
   body,
@@ -182,4 +226,3 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
     font-size: 1rem;
   }
 }
-
