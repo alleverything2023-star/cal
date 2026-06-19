@@ -1,528 +1,586 @@
-/* ==========================================
-   共通・ベース設定
-   ========================================== */
-:root {
-  --bg-color: #1a1a1a;
-  --panel-bg: #262626;
-  --text-color: #ffffff;
-  --border-color: #3f3f3f;
-  --accent-color: #0078d4;
-  --accent-hover: #106ebe;
-  --danger-color: #ea4335;
+/* ========================================================
+   テーマカラーの設定 (cal-main 2 ベース)
+   ======================================================== */
+.dark-theme {
+  --bg-main: #1e1f22;
+  --bg-card: #2b2d31;
+  --bg-left: #111214;
+  --bg-input: #1e1f22;
+  --text-main: #f2f3f5;
+  --text-muted: #b5bac1;
+  --accent: #5865f2;
+  --danger: #da373c;
+  --success: #248046;
 }
 
 .light-theme {
-  --bg-color: #f3f2f1;
-  --panel-bg: #ffffff;
-  --text-color: #323130;
-  --border-color: #edebe9;
-  --accent-color: #0078d4;
-  --accent-hover: #106ebe;
-  --danger-color: #a80000;
+  --bg-main: #f2f3f5;
+  --bg-card: #ffffff;
+  --bg-left: #e3e5e8;
+  --bg-input: #ffffff;
+  --text-main: #313338;
+  --text-muted: #5c5e66;
+  --accent: #5865f2;
+  --danger: #da373c;
+  --success: #248046;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+* { 
+  box-sizing: border-box; 
+  margin: 0; 
+  padding: 0; 
 }
 
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+body, html {
+  width: 100%;
+  height: 100dvh;
+  font-family: -apple-system, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
 }
 
-/* ==========================================
-   入室画面 (joinScreen)
-   ========================================== */
+/* ========================================================
+   入室画面 (joinScreen) のスタイル
+   ======================================================== */
 #joinScreen {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  width: 100vw;
+  width: 100%;
+  height: 100dvh;
+  background-color: var(--bg-main);
+  padding: 20px;
 }
 
-.setup-container {
-  background-color: var(--panel-bg);
-  padding: 2rem;
+.setup-container { 
+  background: var(--bg-card); 
+  padding: 35px; 
+  border-radius: 16px; 
+  width: 100%; 
+  max-width: 500px; 
+  box-shadow: 0 12px 32px rgba(0,0,0,0.3); 
+  text-align: center; 
+}
+
+.setup-container h2 { 
+  margin-bottom: 20px; 
+  font-size: 1.6rem; 
+}
+
+.preview-box { 
+  width: 100%; 
+  aspect-ratio: 16/9; 
+  background: #000; 
+  border-radius: 8px; 
+  margin-bottom: 20px; 
+  overflow: hidden; 
+}
+
+.preview-box video { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+}
+
+.toggle-controls { 
+  margin-bottom: 20px; 
+  text-align: left; 
+}
+
+.toggle-controls label { 
+  display: block; 
+  margin-bottom: 12px; 
+  font-size: 1rem; 
+  cursor: pointer; 
+}
+
+.device-selects { 
+  margin-bottom: 20px; 
+}
+
+.select-field { 
+  margin-bottom: 14px; 
+  text-align: left; 
+}
+
+.select-field label { 
+  display: block; 
+  font-size: 0.85rem; 
+  color: var(--text-muted); 
+  margin-bottom: 6px; 
+}
+
+select, input[type="text"] { 
+  width: 100%; 
+  padding: 12px; 
+  margin-top: 5px; 
+  border-radius: 8px; 
+  border: 1px solid rgba(255,255,255,0.1); 
+  background: var(--bg-input); 
+  color: var(--text-main); 
+  font-size: 1rem; 
+}
+
+#joinButton { 
+  width: 100%; 
+  padding: 14px; 
+  background: var(--accent); 
+  color: white; 
+  border: none; 
+  border-radius: 8px; 
+  font-weight: bold; 
+  margin-top: 25px; 
+  font-size: 1.1rem; 
+  cursor: pointer; 
+}
+
+/* ========================================================
+   メインルーム画面のレイアウト（cal-main 2 比率の完全復活）
+   ======================================================== */
+.app-layout { 
+  display: flex; 
+  flex-direction: column; 
+  width: 100vw; 
+  height: 100dvh; 
+}
+
+.main-content { 
+  display: flex; 
+  flex: 1; 
+  width: 100%; 
+  overflow: hidden; 
+  min-height: 0; 
+}
+
+/* デフォルト：ビデオが広く、右パネルが狭い（7:3） */
+.layout-default #leftContainer { 
+  flex: 7; 
+  background: var(--bg-left); 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  overflow: hidden; 
+  transition: flex 0.25s ease; 
+}
+
+.layout-default #rightContainer { 
+  flex: 3; 
+  background: var(--bg-card); 
+  border-left: 1px solid #2b2d31; 
+  padding: 15px; 
+  display: flex; 
+  flex-direction: column; 
+  transition: flex 0.25s ease; 
+}
+
+/* サイドバーモード：ビデオを1列にし、右パネル（PDF・チャット）を広くする（1:4） */
+.layout-sidebar #leftContainer { 
+  flex: 1; 
+  background: var(--bg-left); 
+  overflow-y: auto; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: flex-start; 
+  padding: 15px 5px; 
+  transition: flex 0.25s ease; 
+}
+
+.layout-sidebar #rightContainer { 
+  flex: 4; 
+  background: var(--bg-card); 
+  border-left: 1px solid #2b2d31; 
+  padding: 15px; 
+  display: flex; 
+  flex-direction: column; 
+  transition: flex 0.25s ease; 
+}
+
+/* ========================================================
+   ビデオグリッドシステム (cal-main 2 ベース)
+   ======================================================== */
+.layout-default #videoGrid { 
+  display: grid; 
+  gap: 20px; 
+  width: 100%; 
+  height: 100%; 
+  padding: 20px; 
+  justify-content: center; 
+  align-content: center; 
+  box-sizing: border-box; 
+}
+
+.layout-default #videoGrid.count-1 { grid-template-columns: minmax(200px, 650px); }
+.layout-default #videoGrid.count-2 { grid-template-columns: repeat(2, minmax(150px, 500px)); }
+.layout-default #videoGrid.count-3 { grid-template-columns: repeat(2, minmax(150px, 450px)); }
+.layout-default #videoGrid.count-3 .videoCard:nth-child(1) { grid-column: 1 / span 2; width: 50%; justify-self: center; }
+.layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 480px)); }
+.layout-default #videoGrid.count-many { grid-template-columns: repeat(3, 1fr); }
+
+.layout-sidebar #videoGrid { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 15px; 
+  width: 100%; 
+}
+
+.videoCard { 
+  background: #000; 
+  border-radius: 12px; 
+  overflow: hidden; 
+  position: relative; 
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
+  aspect-ratio: 16/9; 
+  width: 100%; 
+  display: flex; 
+  flex-direction: column; 
+}
+
+.video-wrapper { 
+  flex: 1; 
+  position: relative; 
+  background: #000; 
+}
+
+.video-wrapper video { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+}
+
+.videoControlBar { 
+  height: 40px; 
+  background: #111214; 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 0 12px; 
+  color: #fff; 
+}
+
+.videoName { 
+  font-size: 0.9rem; 
+  font-weight: 500; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  max-width: 60%; 
+}
+
+.btn-group { 
+  display: flex; 
+  gap: 8px; 
+}
+
+/* ========================================================
+   コントロールボタン & SVGアイコン制御 (崩れを完全修正)
+   ======================================================== */
+.side-panel-header { 
+  display: flex; 
+  gap: 10px; 
+  margin-bottom: 15px; 
+  align-items: center; 
+}
+
+.action-control-btn { 
+  flex: 1; 
+  height: 40px; 
+  border: none; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  font-weight: bold; 
+  transition: background 0.2s; 
+}
+
+.action-control-btn.on { 
+  background: rgba(88, 101, 242, 0.15); 
+}
+
+.action-control-btn.on:hover { 
+  background: rgba(88, 101, 242, 0.3); 
+}
+
+.settings-gear { 
+  font-size: 1.2rem; 
+  background: rgba(0,0,0,0.3); 
+  color: var(--text-main);
+}
+
+.settings-gear:hover { 
+  background: rgba(0,0,0,0.5); 
+}
+
+.action-control-btn:not(.settings-gear):not(.on) { 
+  background: rgba(218, 55, 60, 0.15); 
+}
+
+.action-control-btn:not(.settings-gear):not(.on):hover { 
+  background: rgba(218, 55, 60, 0.3); 
+}
+
+/* マイク・カメラのSVG崩れを防ぐ記述 */
+.icon-svg { 
+  width: 20px; 
+  height: 20px; 
+  stroke: var(--accent); 
+  fill: none; 
+  stroke-width: 2; 
+  stroke-linecap: round; 
+  stroke-linejoin: round; 
+}
+
+.action-control-btn:not(.settings-gear):not(.on) .icon-svg { 
+  stroke: var(--danger); 
+}
+
+/* 斜線 (ミュート) の出し入れ */
+.slash-line { 
+  display: none; 
+  stroke-width: 2; 
+}
+
+.action-control-btn:not(.settings-gear):not(.on) .slash-line { 
+  display: block; 
+}
+
+/* ビデオカード内のステータス用 */
+.status-indicator { 
+  width: 26px; 
+  height: 26px; 
+  background: rgba(218, 55, 60, 0.2); 
+  border-radius: 6px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+}
+
+.status-indicator .icon-svg { 
+  width: 14px; 
+  height: 14px; 
+  stroke: var(--danger); 
+}
+
+.status-indicator.on { 
+  background: rgba(255,255,255,0.1); 
+}
+
+.status-indicator.on .icon-svg { 
+  stroke: #b5bac1; 
+}
+
+.status-indicator.on .slash-line { 
+  display: none; 
+}
+
+.status-indicator:not(.on) .slash-line { 
+  display: block; 
+}
+
+/* ========================================================
+   タブシステム
+   ======================================================== */
+.side-panel-body { 
+  flex: 1; 
+  position: relative; 
+  min-height: 0; 
+  background: rgba(0,0,0,0.1); 
+  border-radius: 8px; 
+  margin-bottom: 10px; 
+}
+
+.tab-content { 
+  display: none; 
+  position: absolute; 
+  top:0; left:0; right:0; bottom:0; 
+  padding: 10px; 
+  flex-direction: column; 
+}
+
+.tab-content.active { 
+  display: flex; 
+}
+
+.tab-placeholder { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  height: 100%; 
+  color: var(--text-muted); 
+  font-size: 0.95rem; 
+}
+
+.side-tab-bar { 
+  display: flex; 
+  background: var(--bg-left); 
+  border-radius: 8px; 
+  padding: 4px; 
+  gap: 4px; 
+}
+
+.tab-btn { 
+  flex: 1; 
+  background: none; 
+  border: none; 
+  color: var(--text-muted); 
+  padding: 8px 4px; 
+  cursor: pointer; 
+  font-size: 0.8rem; 
+  border-radius: 6px; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 2px; 
+}
+
+.tab-btn span { 
+  font-size: 0.7rem; 
+}
+
+.tab-btn:hover { 
+  background: rgba(255,255,255,0.05); 
+}
+
+.tab-btn.active { 
+  background: var(--bg-card); 
+  color: var(--accent); 
+  font-weight: bold; 
+}
+
+/* ========================================================
+   チャット機能関連
+   ======================================================== */
+.chat-container { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100%; 
+}
+
+.chat-messages { 
+  flex: 1; 
+  overflow-y: auto; 
+  padding: 5px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 2px; 
+}
+
+.chat-system { 
+  text-align: center; 
+  color: var(--text-muted); 
+  font-size: 0.8rem; 
+  margin: 10px 0; 
+}
+
+.chat-input-area { 
+  display: flex; 
+  gap: 8px; 
+  margin-top: 10px; 
+}
+
+.chat-input-area input[type="text"] { 
+  flex: 1; 
+  margin-top: 0; 
+}
+
+.chat-input-area button { 
+  padding: 0 16px; 
+  background: var(--accent); 
+  color: white; 
+  border: none; 
+  border-radius: 8px; 
+  font-weight: bold; 
+  cursor: pointer; 
+}
+
+#imageBtn {
+  background: var(--bg-input);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 1.1rem;
+  padding: 0 12px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 100%;
-  max-width: 450px;
-  text-align: center;
+  cursor: pointer;
 }
 
-.setup-container h2 {
-  margin-bottom: 1.5rem;
-}
-
-.preview-box {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background-color: #000;
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 1rem;
-}
-
-.preview-box video {
-  width: 100%;
-  height: 100%;
+.chat-image {
+  max-width: 180px;
+  max-height: 140px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 4px;
+  border: 1px solid rgba(0,0,0,0.2);
   object-fit: cover;
 }
 
-.toggle-controls {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.toggle-controls label {
-  cursor: pointer;
-}
-
-.device-selects {
-  margin-bottom: 1.5rem;
-  text-align: left;
-}
-
-.select-field {
-  margin-bottom: 0.75rem;
-}
-
-.select-field label {
-  display: block;
-  font-size: 0.85rem;
-  margin-bottom: 0.25rem;
-}
-
-.select-field select {
-  width: 100%;
-  padding: 0.5rem;
-  border-radius: 4px;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-}
-
-.join-form {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.join-form input {
-  flex: 1;
-  padding: 0.75rem;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-color);
-  color: var(--text-color);
-}
-
-.join-form button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.join-form button:hover {
-  background-color: var(--accent-hover);
-}
-
-/* ==========================================
-   メインレイアウト (ルーム画面)
-   ========================================== */
-#roomScreen {
-  height: 100vh;
-  width: 100vw;
-}
-
-.app-layout {
-  height: 100vh;
-  width: 100vw;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-content {
-  display: flex;
-  flex: 1;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-
-/* --- 比率（レイアウト）切り替え --- */
-/* デフォルト: 左（ビデオ）と右（サイドパネル）が 50:50 */
-.layout-default #leftContainer {
-  flex: 1 1 50%;
-  width: 50%;
-}
-.layout-default #rightContainer {
-  flex: 1 1 50%;
-  width: 50%;
-}
-
-/* ワイドモード: 左（ビデオ）を広く、右（サイドパネル）を狭く (75:25) */
-.layout-wide #leftContainer {
-  flex: 1 1 75%;
-  width: 75%;
-}
-.layout-wide #rightContainer {
-  flex: 1 1 25%;
-  width: 25%;
-}
-
-/* ==========================================
-   左側：ビデオグリッドエリア (修正ポイント)
-   ========================================== */
-#leftContainer {
-  background-color: #111;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 10px;
-  box-sizing: border-box;
-  transition: flex 0.3s ease, width 0.3s ease;
-}
-
-/* ビデオが画面いっぱいに広がらないよう、グリッドでブロックとして配置 */
-#videoGrid {
-  display: grid;
-  gap: 12px;
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  justify-content: center;
-  align-content: center;
-}
-
-/* 参加人数（クラス名）に応じたグリッド配置（小さなブロックとして配置する自動調整） */
-#videoGrid.count-1 {
-  grid-template-columns: minmax(240px, 640px);
-  grid-template-rows: minmax(135px, 360px);
-}
-
-#videoGrid.count-2 {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  max-width: 960px;
-}
-
-#videoGrid.count-3, 
-#videoGrid.count-4 {
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
-  max-width: 960px;
-}
-
-/* 各ビデオカード（ブロック）の装飾 */
-.videoCard {
-  background-color: #222;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 16 / 9;
-}
-
-.video-wrapper {
-  flex: 1;
-  background-color: #000;
-  position: relative;
-  overflow: hidden;
-}
-
-.video-wrapper video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover; /* ブロック内で綺麗に収める */
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-/* ビデオ下部のコントロール・ネームバー */
-.videoControlBar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 6px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 2;
-}
-
-.videoName {
-  color: #fff;
-  font-size: 0.85rem;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* アイコン類 */
-.btn-group {
-  display: flex;
-  gap: 8px;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-}
-
-.status-indicator .slash-line {
-  display: none;
-  stroke: var(--danger-color);
-  stroke-width: 2;
-}
-
-.status-indicator.off .slash-line {
-  display: block;
-}
-
-.status-indicator svg {
-  width: 16px;
-  height: 16px;
-  fill: #fff;
-  stroke: #fff;
-  stroke-width: 0;
-}
-
-/* ==========================================
-   右側：サイドパネル（チャット・PDF・タブ）
-   ========================================== */
-#rightContainer {
-  background-color: var(--panel-bg);
-  border-left: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: flex 0.3s ease, width 0.3s ease;
-}
-
-/* 上部コントロールバー */
-.side-panel-header {
-  padding: 0.5rem;
-  display: flex;
-  gap: 0.5rem;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--panel-bg);
-}
-
-.action-control-btn {
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
-  width: 36px;
-  height: 36px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.action-control-btn:hover {
-  opacity: 0.8;
-}
-
-.action-control-btn.on {
-  background-color: var(--accent-color);
-  color: white;
-}
-
-.action-control-btn.on svg {
-  fill: #fff;
-  stroke: #fff;
-}
-
-.action-control-btn .slash-line {
-  display: none;
-  stroke: #fff;
-  stroke-width: 2;
-}
-
-.action-control-btn:not(.on) {
-  background-color: var(--danger-color);
-  color: white;
-}
-
-.action-control-btn:not(.on) .slash-line {
-  display: block;
-}
-
-.settings-gear {
-  margin-left: auto;
-  background-color: transparent !not;
-  font-size: 1.2rem;
-}
-
-/* メイン表示エリア */
-.side-panel-body {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-}
-
-.tab-content {
-  display: none;
-  width: 100%;
-  height: 100%;
-}
-
-.tab-content.active {
-  display: flex;
-  flex-direction: column;
-}
-
-.tab-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #888;
-}
-
-/* 下部または側面のタブバー */
-.side-tab-bar {
-  display: flex;
-  border-top: 1px solid var(--border-color);
-  background-color: var(--panel-bg);
-}
-
-.tab-btn {
-  flex: 1;
-  padding: 0.75rem 0.25rem;
-  background: none;
-  border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  opacity: 0.6;
-}
-
-.tab-btn.active {
-  opacity: 1;
-  color: var(--accent-color);
-  border-top: 2px solid var(--accent-color);
-}
-
-/* ==========================================
-   機能別の内部スタイル（チャット・PDF等）
-   ========================================== */
-
-/* チャット */
-.chat-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.chat-messages {
-  flex: 1;
-  padding: 1rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.chat-system {
-  text-align: center;
-  color: #888;
-  font-size: 0.8rem;
-  margin: 0.5rem 0;
-}
-
-.chat-input-area {
-  padding: 0.5rem;
-  display: flex;
-  gap: 0.5rem;
-  border-top: 1px solid var(--border-color);
-  background-color: var(--panel-bg);
-}
-
-.chat-input-area input[type="text"] {
-  flex: 1;
-  padding: 0.5rem;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-color);
-  color: var(--text-color);
-}
-
-.chat-input-area button {
-  padding: 0.5rem 1rem;
-  background-color: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-/* PDF共有関係のレイアウト設定 */
+/* ========================================================
+   【新規：3よりマージ】PDF共有およびキャンバス描画のスタイル
+   ======================================================== */
 .pdf-container-root {
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  gap: 8px;
 }
 
-.top-controls, .pdf-controls-bar {
-  padding: 6px;
+.top-controls {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
-  background-color: var(--bg-color);
-  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
 }
 
-.pdf-controls-bar button {
-  padding: 4px 8px;
+.top-controls button {
+  flex: 1;
+  padding: 8px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
-  background-color: var(--panel-bg);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+}
+
+.pdf-controls-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .pdf-page-nav, .pdf-toolbar, .draw-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-right: 1px solid var(--border-color);
-  padding-right: 6px;
+  font-size: 0.85rem;
 }
 
-.draw-toolbar {
-  border-right: none;
+.pdf-controls-bar button {
+  background: #444;
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pdf-controls-bar button:hover {
+  background: #555;
+}
+
+.draw-toolbar input[type="color"] {
+  border: none;
+  width: 24px;
+  height: 24px;
+  background: none;
+  cursor: pointer;
 }
 
 .brush-size-container {
@@ -531,18 +589,25 @@ body {
   gap: 4px;
 }
 
+.brush-size-container input[type="range"] {
+  width: 60px;
+}
+
 #pdfFileNameLabel {
-  padding: 4px 8px;
   font-size: 0.8rem;
-  background-color: rgba(0,0,0,0.2);
+  color: var(--text-muted);
   text-align: center;
-  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pdf-scroll-container {
   flex: 1;
   overflow: auto;
-  background-color: #333;
+  background: #111214;
+  border-radius: 6px;
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -551,9 +616,10 @@ body {
 
 #pdfWrapper {
   position: relative;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 
+/* PDFの上に透過状態で手書きCanvasをぴったり重ねる設定 */
 #pdfCanvas {
   display: block;
 }
@@ -562,66 +628,73 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1;
+  z-index: 5;
   cursor: crosshair;
 }
 
-/* ==========================================
-   設定モーダル & 画像ビューア
-   ========================================== */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
+/* ========================================================
+   モーダル・その他共通パーツ
+   ======================================================== */
+.modal-overlay { 
+  position: fixed; 
+  top: 0; left: 0; width: 100%; height: 100%; 
+  background: rgba(0,0,0,0.6); 
+  z-index: 1000; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
 }
 
-.modal-content {
-  background: var(--panel-bg);
-  padding: 1.5rem;
-  border-radius: 8px;
-  min-width: 280px;
+.modal-content { 
+  background: var(--bg-card); 
+  padding: 24px; 
+  border-radius: 10px; 
+  width: 320px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 16px; 
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
-.modal-item {
-  margin: 1rem 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+.modal-item { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 6px; 
+  text-align: left;
 }
 
-.close-btn {
-  width: 100%;
-  padding: 0.5rem;
-  margin-top: 1rem;
-  cursor: pointer;
+.modal-item input { 
+  padding: 8px; 
+  background: var(--bg-main); 
+  color: var(--text-main); 
+  border: 1px solid #444; 
+  border-radius: 4px; 
+}
+
+.modal-item button, .close-btn { 
+  padding: 8px; 
+  background: var(--accent); 
+  color: white; 
+  border: none; 
+  border-radius: 4px; 
+  cursor: pointer; 
+}
+
+.close-btn { 
+  background: #555; 
 }
 
 .image-viewer {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.9);
-  z-index: 1000;
+  z-index: 2000;
   justify-content: center;
   align-items: center;
 }
 
-.image-viewer.active {
-  display: flex;
-}
-
-#viewerImage {
+.image-viewer img {
   max-width: 90%;
   max-height: 90%;
   object-fit: contain;
@@ -629,11 +702,19 @@ body {
 
 #closeImageViewer {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  background: none;
-  border: none;
-  color: white;
-  font-size: 2rem;
+  top: 20px; right: 20px;
+  background: none; border: none;
+  color: white; font-size: 2rem;
   cursor: pointer;
+}
+
+/* ========================================================
+   スマートフォン・モバイル向けレスポンシブ
+   ======================================================== */
+@media (max-width: 768px) {
+  body, html { overflow: hidden; height: 100dvh; }
+  .app-layout { height: 100dvh; display: flex; flex-direction: column; }
+  .main-content { flex-direction: column; height: calc(100dvh - 80px); overflow: hidden; }
+  .layout-default #leftContainer, .layout-sidebar #leftContainer { width: 100%; flex: none; height: 35vh; max-height: 35vh; }
+  .layout-default #rightContainer, .layout-sidebar #rightContainer { width: 100%; flex: 1; border-left: none; border-top: 1px solid #2b2d31; height: auto; overflow: hidden; display: flex; flex-direction: column; }
 }
