@@ -110,6 +110,7 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
 .tab-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
 .tab-btn.active { background: var(--bg-main); color: var(--accent); font-weight: bold; }
 
+/* 画像関連スタイル追加 */
 #imageBtn{
   width:44px;
   border:none;
@@ -119,14 +120,12 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   color:var(--text-main);
   font-size:18px;
 }
-
 .chat-image{
   max-width:220px;
   border-radius:10px;
   cursor:pointer;
   display:block;
 }
-
 .image-viewer{
   position:fixed;
   inset:0;
@@ -136,12 +135,10 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   align-items:center;
   z-index:9999;
 }
-
 .image-viewer img{
   max-width:95%;
   max-height:95%;
 }
-
 #closeImageViewer{
   position:absolute;
   top:20px;
@@ -154,75 +151,160 @@ select, input[type="text"] { width: 100%; padding: 12px; margin-top: 5px; border
   font-size:22px;
 }
 
-@media (max-width: 768px) {
+/* PDFコンテナおよび手書きCanvas用スタイル */
+.pdf-container-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.top-controls {
+  height: 28px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.top-controls button {
+  padding: 2px 8px;
+  font-size: 12px;
+  background-color: #25a15a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+#switchAccountBtn {
+  background-color: #dc3545;
+}
+.pdf-controls-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pdf-page-nav, .pdf-toolbar, .draw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pdf-controls-bar button {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-main);
+  color: var(--text-main);
+  cursor: pointer;
+  font-weight: bold;
+}
+.pdf-toolbar button {
+  width: 32px;
+  height: 32px;
+}
+.draw-toolbar button.active {
+  background: var(--accent);
+  color: #fff;
+}
+#pdfFileNameLabel {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 6px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdf-scroll-container {
+  flex: 1;
+  border: 2px dashed #444;
+  border-radius: 6px;
+  overflow: auto;
+  background-color: #222;
+  min-height: 300px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+}
+#pdfWrapper {
+  position: relative;
+  margin: auto;
+}
+#pdfCanvas {
+  display: block;
+}
+#drawCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  cursor: crosshair;
+  touch-action: none;
+}
 
-  body,
-  html {
-    overflow: hidden; /* 全体のスクロールを止め、アプリ風の挙動にします */
+@media (max-width: 768px) {
+  body, html {
+    overflow: hidden;
     height: 100dvh;
   }
-
   .app-layout {
     height: 100dvh;
     display: flex;
     flex-direction: column;
   }
-
-  /* 通話中のメインコンテンツ全体 */
   .main-content {
     flex-direction: column;
-    height: calc(100dvh - 80px); /* 下部コントロールバー（仮に80px）の分を引いた高さ */
+    height: calc(100dvh - 80px);
     overflow: hidden;
   }
-
-  /* 上側のビデオエリア */
   .layout-default #leftContainer,
   .layout-sidebar #leftContainer {
     width: 100%;
     flex: none;
-    height: 35vh; /* ビデオの高さを固定 */
+    height: 35vh;
     max-height: 35vh;
   }
-
-  /* 下側のチャット・タブエリア */
   .layout-default #rightContainer,
   .layout-sidebar #rightContainer {
     width: 100%;
-    flex: 1; /* 残りの高さをすべて使う */
+    flex: 1;
     border-left: none;
     border-top: 1px solid #2b2d31;
     height: auto;
-    overflow: hidden; /* 中身だけをスクロールさせる */
+    overflow: hidden;
     display: flex;
-    flex-direction: column; /* タブと中身を縦に並べる */
+    flex-direction: column;
   }
-
-  /* タブのコンテンツエリア（チャットのメッセージなど） */
-  .side-panel-content {
-    flex: 1;
-    overflow-y: auto; /* ここをスクロール可能にする */
-  }
-
-  /* チャットのメッセージ一覧をスクロール可能に */
   .chat-messages {
     flex: 1;
     overflow-y: auto;
   }
-
-  /* タブボタンの一覧（横並びにして常に見えるようにする） */
   .side-tab-bar {
-    flex-direction: row; /* 横並びに変更 */
+    flex-direction: row;
     width: 100%;
     height: 50px;
-    border-left: none;
     border-top: 1px solid #2b2d31;
-    overflow-x: auto; /* ボタンが多ければ横スクロール */
+    overflow-x: auto;
   }
-
   .tab-btn {
     flex: 1;
     padding: 8px;
-    flex-direction: column; /* アイコンと文字を縦並びに */
+    flex-direction: column;
     font-size: 1rem;
+  }
+  /* ⑨⑩ PDF wrapper・チャットエリアサイズ最適化 */
+  #pdfWrapper {
+    min-height: 75vh;
+  }
+  #chatArea {
+    max-height: 15vh;
   }
 }
