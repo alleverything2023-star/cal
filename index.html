@@ -116,6 +116,8 @@
                   <div class="chat-system">チャットへようこそ！</div>
                 </div>
                 <div class="chat-input-area">
+                  <input type="file" id="imageInput" accept="image/*" hidden>
+                  <button id="imageBtn">🖼️</button>
                   <input type="text" id="chatInput" placeholder="メッセージを入力..." maxlength="100">
                   <button id="chatSendBtn">送信</button>
                 </div>
@@ -146,6 +148,12 @@
       </div>
     </div>
   </div>
+
+  <div id="imageViewer" class="image-viewer">
+    <button id="closeImageViewer">✕</button>
+    <img id="viewerImage">
+  </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
