@@ -1,15 +1,10 @@
-import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData } from "./room.js";
+import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData, updatePdfPageInFirebase } from "./room.js";
 import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
+import { loadAndRenderPdf, renderCurrentPage, changePage, clearDrawCanvas } from "./pdf.js";
 
-// ==========================================
-// Google Drive Picker API の設定値
-// ==========================================
-// ★ご指定 of Picker用キーに変更しました
 const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
 const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
-
-// ドライブ選択画面に必要なスコープ
 const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
 
 let accessToken = null;
@@ -33,7 +28,6 @@ const myLocalVideo = document.getElementById("myLocalVideo");
 const myLocalName = document.getElementById("myLocalName");
 const videoGrid = document.getElementById("videoGrid");
 
-// 右上のコントロールボタン類
 const myCamBtn = document.getElementById("myCamBtn");
 const myMicBtn = document.getElementById("myMicBtn");
 const layoutToggleBtn = document.getElementById("layoutToggleBtn");
@@ -42,7 +36,6 @@ const appLayout = document.getElementById("appLayout");
 const myCamStatus = document.getElementById("myCamStatus");
 const myMicStatus = document.getElementById("myMicStatus");
 
-// 設定モーダル関連
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
@@ -50,49 +43,38 @@ const themeToggleBtn = document.getElementById("themeToggleBtn");
 const newNameInput = document.getElementById("newNameInput");
 const updateNameBtn = document.getElementById("updateNameBtn");
 
-// タブ・チャット関連
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatMessages = document.getElementById("chatMessages");
 
+// ④ 画像エリア要素取得
 const imageBtn = document.getElementById("imageBtn");
 const imageInput = document.getElementById("imageInput");
-
 const imageViewer = document.getElementById("imageViewer");
 const viewerImage = document.getElementById("viewerImage");
 const closeImageViewer = document.getElementById("closeImageViewer");
 
-// ビデオ要素にストリームを設定するヘルパー
+// PDFページ切り替えボタン
+const prevPageBtn = document.getElementById("prevPageBtn");
+const nextPageBtn = document.getElementById("nextPageBtn");
+
 function setVideoSrc(videoElement, stream) {
   if (!videoElement) return;
   videoElement.srcObject = stream;
   videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
 }
 
-// Google APIライブラリの読み込み関数
 function loadGoogleLibraries() {
   return new Promise((resolve) => {
-    if (gapiInited) {
-      resolve(true);
-      return;
-    }
-    if (typeof gapi === 'undefined') {
-      console.error("gapiライブラリがindex.htmlで読み込まれていません");
-      resolve(false);
-      return;
-    }
-    gapi.load('picker', () => {
-      gapiInited = true;
-      resolve(true);
-    });
+    if (gapiInited) { resolve(true); return; }
+    if (typeof gapi === 'undefined') { resolve(false); return; }
+    gapi.load('picker', () => { gapiInited = true; resolve(true); });
   });
 }
 
-// アプリの初期化
 async function init() {
-  // 入室画面のレイアウト崩れ防止
   if (joinScreen) {
     joinScreen.style.display = "flex";
     joinScreen.style.flexDirection = "column";
@@ -122,64 +104,32 @@ async function init() {
     }
   }
 
-  // 【PDF共有タブのUI構築】
-  if (tabContents && tabContents[1]) {
-    const pdfTabArea = tabContents[1];
-    pdfTabArea.innerHTML = `
-      <div style="display:flex; flex-direction:column; height:100%; padding:10px; box-sizing:border-box;">
-        <div style="margin-bottom:10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
-          <button id="openDrivePickerBtn" style="background-color:#25a15a; color:white; padding:8px 16px; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:8px;">
-            📁 GoogleドライブからPDFを選択
-          </button>
-          <button id="switchAccountBtn" style="background-color:#dc3545; color:white; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; display:flex; align-items:center; gap:4px;">
-            🔄 アカウントを切り替える
-          </button>
-        </div>
-        <div id="pdfFileNameLabel" style="font-size:12px; color:#aaa; margin-bottom:6px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">共有中の資料はありません</div>
-        <div id="pdfViewerWrapper" style="flex:1; border:2px dashed #444; border-radius:6px; display:flex; justify-content:center; align-items:center; overflow:hidden; background-color:#222; min-height:300px;">
-          <p id="pdfPlaceholderText" style="color:#777; font-size:14px; text-align:center; padding:20px;">上のボタンからGoogleドライブのフォルダ・ファイルを開いてPDFを共有できます。<br>(共有後は全員の画面で全ページ自由にスクロール・拡大できます)</p>
-        </div>
-      </div>
-    `;
-
-    if (tabButtons && tabButtons[1]) {
-      tabButtons[1].textContent = "PDF共有";
-    }
-
-    const openDrivePickerBtn = document.getElementById("openDrivePickerBtn");
-    if (openDrivePickerBtn) {
-      openDrivePickerBtn.addEventListener("click", handleDrivePickerOpen);
-    }
-
-    const switchAccountBtn = document.getElementById("switchAccountBtn");
-    if (switchAccountBtn) {
-      switchAccountBtn.addEventListener("click", handleSwitchAccount);
-    }
+  // Google ドライブ Picker 起動ボタンの紐付け
+  const openDrivePickerBtn = document.getElementById("openDrivePickerBtn");
+  if (openDrivePickerBtn) {
+    openDrivePickerBtn.addEventListener("click", handleDrivePickerOpen);
+  }
+  const switchAccountBtn = document.getElementById("switchAccountBtn");
+  if (switchAccountBtn) {
+    switchAccountBtn.addEventListener("click", handleSwitchAccount);
   }
 
-  // バックグラウンドで初期ライブラリロードを試みる
   await loadGoogleLibraries();
 
   try {
     localStream = await getLocalStream();
-    if (myPreviewVideo) {
-      setVideoSrc(myPreviewVideo, localStream);
-    }
+    if (myPreviewVideo) { setVideoSrc(myPreviewVideo, localStream); }
     await new Promise(r => setTimeout(r, 300));
     await updateDeviceList();
-  } catch (e) { 
-    console.error("初期化エラー:", e);
-  }
+  } catch (e) { console.error("初期化エラー:", e); }
 }
 
-// Googleドライブの選択ポップアップ制御
 async function handleDrivePickerOpen() {
   const ready = await loadGoogleLibraries();
   if (!ready || typeof google === 'undefined') {
-    alert("Googleのシステムを読み込み中です。3秒ほど待ってからもう一度押してください。");
+    alert("Googleのシステムを読み込み中です。少し待ってからもう一度押してください。");
     return;
   }
-
   if (!accessToken) {
     try {
       const tokenClient = google.accounts.oauth2.initTokenClient({
@@ -187,16 +137,13 @@ async function handleDrivePickerOpen() {
         scope: SCOPES,
         prompt: 'select_account', 
         callback: async (response) => {
-          if (response.error !== undefined) {
-            throw response;
-          }
+          if (response.error !== undefined) throw response;
           accessToken = response.access_token;
           createPicker();
         },
       });
       tokenClient.requestAccessToken();
     } catch (err) {
-      console.error("Google認証エラー:", err);
       alert("認証画面の起動に失敗しました。");
     }
   } else {
@@ -204,82 +151,46 @@ async function handleDrivePickerOpen() {
   }
 }
 
-// アカウントの切り替え処理
 function handleSwitchAccount() {
   if (accessToken) {
     try {
       google.accounts.oauth2.revokeToken(accessToken, () => {
         accessToken = null;
-        alert("ログイン状態をクリアしました！もう一度「PDFを選択」を押すとアカウントを選び直せます。");
+        alert("アカウントを選択し直せます。");
       });
     } catch (err) {
-      console.error("トークン解除エラー:", err);
       accessToken = null;
     }
   } else {
-    accessToken = null;
-    alert("ログイン状態はすでにクリアされています。そのまま「PDFを選択」を押して別のアカウントを選んでください。");
+    alert("そのまま「PDFを選択」を押して別のアカウントを選んでください。");
   }
 }
 
-// ピッカー選択画面の作成・表示（★ご指定のシンプル構成に変更）
 function createPicker() {
-  if (!gapiInited || !accessToken) {
-    alert("Googleドライブの準備がまだ完了していません。");
-    return;
-  }
-  
+  if (!gapiInited || !accessToken) return;
   try {
-    const docsView = new google.picker.DocsView()
-      .setMimeTypes("application/pdf");
-
+    const docsView = new google.picker.DocsView().setMimeTypes("application/pdf");
     const picker = new google.picker.PickerBuilder()
       .addView(docsView)
       .setOAuthToken(accessToken)
       .setDeveloperKey(DEVELOPER_KEY)
       .setCallback(pickerCallback)
       .build();
-      
     picker.setVisible(true);
-  } catch (err) {
-    console.error(err);
-    alert(String(err));
-  }
+  } catch (err) { alert(String(err)); }
 }
 
-// ユーザーがドライブ上のPDFファイルを選んだ時の処理
 async function pickerCallback(data) {
   if (data.action === google.picker.Action.PICKED) {
     const doc = data.docs[0];
-    const fileId = doc.id;
-    const fileName = doc.name;
-    
-    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-    
+    // Google Driveから実バイナリをダウンロードするためのURL
+    const downloadUrl = `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
     try {
-      await sendPdfToFirebase(embedUrl, fileName);
-    } catch (err) {
-      console.error("Firebaseへの同期に失敗:", err);
-      alert("共有に失敗しました。");
-    }
+      await sendPdfToFirebase(downloadUrl, doc.name);
+    } catch (err) { alert("共有に失敗しました。"); }
   }
 }
 
-// Firebaseから共有URLを受信してiframeに描写
-function renderPdfBlob(sharedUrl, fileName, senderId) {
-  const wrapper = document.getElementById("pdfViewerWrapper");
-  const label = document.getElementById("pdfFileNameLabel");
-  if (!wrapper) return;
-
-  if (label) {
-    label.textContent = `共有中: ${fileName} (${senderId === myId ? "あなた" : "他のユーザー"})`;
-  }
-
-  wrapper.innerHTML = `<iframe src="${sharedUrl}" style="width:100%; height:100%; border:none; background-color:#fff;" allow="fullscreen"></iframe>`;
-  wrapper.style.border = "none";
-}
-
-// デバイス（カメラ・マイク）切り替え処理
 async function handleDeviceChange() {
   if (!localStream) return;
   localStream.getTracks().forEach(track => { try { track.stop(); } catch(err) {} });
@@ -288,8 +199,7 @@ async function handleDeviceChange() {
   try {
     const targetCam = cameraSelect?.value || null;
     const targetMic = micSelect?.value || null;
-    const newStream = await getLocalStream(targetCam, targetMic);
-    localStream = newStream;
+    localStream = await getLocalStream(targetCam, targetMic);
     
     if (!isJoined) {
       if (myPreviewVideo) setVideoSrc(myPreviewVideo, localStream);
@@ -316,22 +226,12 @@ async function handleDeviceChange() {
 if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
 if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
 
-// 右上の操作コントロールボタン
-if (settingsBtn) {
-  settingsBtn.addEventListener("click", () => {
-    if (settingsModal) settingsModal.style.display = "flex";
-  });
-}
-if (closeSettingsBtn) {
-  closeSettingsBtn.addEventListener("click", () => {
-    if (settingsModal) settingsModal.style.display = "none";
-  });
-}
+if (settingsBtn) settingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "flex"));
+if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "none"));
 
 if (themeToggleBtn) {
   themeToggleBtn.addEventListener("click", () => {
-    const isDark = document.body.classList.contains("dark-theme");
-    if (isDark) {
+    if (document.body.classList.contains("dark-theme")) {
       document.body.classList.replace("dark-theme", "light-theme");
       themeToggleBtn.textContent = "ダークモードに切替";
     } else {
@@ -347,7 +247,7 @@ if (updateNameBtn) {
     const newName = newNameInput.value.trim();
     if (!newName) return;
     await updateMyName(newName);
-    if (myLocalName) myLocalName.textContent = `${newName} (あなた)`;
+    if (myLocalName) myLocalName.textContent = `${newName} (自然)`;
     currentUserName = newName;
     newNameInput.value = "";
     alert("名前を更新しました");
@@ -387,7 +287,10 @@ if (myMicBtn) {
   });
 }
 
-// 入室処理
+// ページ送りボタンイベント
+if (prevPageBtn) { prevPageBtn.onclick = () => changePage(-1); }
+if (nextPageBtn) { nextPageBtn.onclick = () => changePage(1); }
+
 if (joinButton) {
   joinButton.addEventListener("click", async () => {
     if (!nameInput || !localStream) return;
@@ -412,13 +315,9 @@ if (joinButton) {
     if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
     if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
 
-    // 参加者監視
     listenParticipants((participants) => {
       for (const id in peerConnections) {
-        if (!participants[id]) {
-          closeP2P(id);
-          document.getElementById(`card-${id}`)?.remove();
-        }
+        if (!participants[id]) { closeP2P(id); document.getElementById(`card-${id}`)?.remove(); }
       }
       for (const id in participants) {
         if (id !== myId && !peerConnections[id]) {
@@ -428,26 +327,20 @@ if (joinButton) {
       updateGridClass();
     });
 
-    // チャット監視
+    // ⑥ チャット受信
     listenChatMessages((msg) => {
       if (msg.image) {
-        appendImageMessage(
-          msg.sender,
-          msg.image,
-          msg.sender === currentUserName
-        );
+        appendImageMessage(msg.sender, msg.image, msg.sender === currentUserName);
       } else {
-        appendMessage(
-          msg.sender,
-          msg.text,
-          msg.sender === currentUserName
-        );
+        appendMessage(msg.sender, msg.text, msg.sender === currentUserName);
       }
     });
 
-    // PDFリンクリアルタイム監視
-    listenPdfData((sharedUrl, fileName, senderId) => {
-      renderPdfBlob(sharedUrl, fileName, senderId);
+    // Firebase同期のPDFリンク監視
+    listenPdfData((pdfData) => {
+      const label = document.getElementById("pdfFileNameLabel");
+      if (label) label.textContent = `共有中: ${pdfData.name}`;
+      loadAndRenderPdf(pdfData.pdf, accessToken, pdfData.page);
     });
   });
 }
@@ -471,7 +364,6 @@ function updateGridClass() {
   videoGrid.className = "count-" + videoGrid.querySelectorAll(".videoCard").length;
 }
 
-// タブ制御
 tabButtons.forEach(button => {
   button.addEventListener("click", () => {
     tabButtons.forEach(btn => btn.classList.remove("active"));
@@ -481,10 +373,10 @@ tabButtons.forEach(button => {
       content.classList.toggle("active", content.id === `tabContent-${targetTab}`);
     });
     if (targetTab === "chat") scrollToBottom();
+    if (targetTab === "pdf") renderCurrentPage(); // タブを開き直した時の再描写
   });
 });
 
-// チャット
 function sendChatMessage() {
   if (!chatInput) return;
   const text = chatInput.value.trim();
@@ -510,38 +402,29 @@ function appendMessage(sender, text, isMe = false) {
   const bbl = document.createElement("div");
   bbl.textContent = text;
   bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%"; bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
-  if (isMe) {
-    bbl.style.backgroundColor = "#007bff"; bbl.style.color = "white";
-  } else {
-    bbl.style.backgroundColor = "#e9ecef"; bbl.style.color = "#333";
-  }
+  if (isMe) { bbl.style.backgroundColor = "#007bff"; bbl.style.color = "white"; }
+  else { bbl.style.backgroundColor = "#e9ecef"; bbl.style.color = "#333"; }
   wrap.appendChild(bbl);
   chatMessages.appendChild(wrap);
   scrollToBottom();
 }
 
+// ⑦ 画像表示関数追加
 function appendImageMessage(sender, imageUrl, isMe=false){
   const wrap = document.createElement("div");
   wrap.style.display = "flex";
   wrap.style.flexDirection = "column";
   wrap.style.margin = "8px 0";
-
-  if(isMe){
-    wrap.style.alignItems = "flex-end";
-  }
+  if(isMe) wrap.style.alignItems = "flex-end";
 
   const lbl = document.createElement("span");
   lbl.textContent = isMe ? "あなた" : sender;
-  lbl.style.fontSize = "12px";
-  lbl.style.color = "#aaa";
-  lbl.style.marginBottom = "2px";
-
+  lbl.style.fontSize = "12px"; lbl.style.color = "#aaa"; lbl.style.marginBottom = "2px";
   wrap.appendChild(lbl);
 
   const img = document.createElement("img");
   img.src = imageUrl;
   img.className = "chat-image";
-
   img.onclick = () => {
     viewerImage.src = imageUrl;
     imageViewer.style.display = "flex";
@@ -556,32 +439,20 @@ function scrollToBottom() { if (chatMessages) chatMessages.scrollTop = chatMessa
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
 if (chatInput) chatInput.addEventListener("keydown", (e) => e.key === "Enter" && !e.isComposing && sendChatMessage());
 
-imageBtn.addEventListener("click", () => {
-  imageInput.click();
-});
-
+// ⑤ 画像送信イベント
+imageBtn.addEventListener("click", () => { imageInput.click(); });
 imageInput.addEventListener("change", () => {
   const file = imageInput.files[0];
   if (!file) return;
-
   const reader = new FileReader();
-  reader.onload = () => {
-    sendImageMessageToFirebase(
-      currentUserName,
-      reader.result
-    );
-  };
+  reader.onload = () => { sendImageMessageToFirebase(currentUserName, reader.result); };
   reader.readAsDataURL(file);
 });
 
-closeImageViewer.addEventListener("click", () => {
-  imageViewer.style.display = "none";
-});
-
+// ⑧ 拡大画像を閉じる
+closeImageViewer.addEventListener("click", () => { imageViewer.style.display = "none"; });
 imageViewer.addEventListener("click", (e) => {
-  if(e.target === imageViewer){
-    imageViewer.style.display = "none";
-  }
+  if(e.target === imageViewer) imageViewer.style.display = "none";
 });
 
 init();
