@@ -213,7 +213,7 @@ if (updateNameBtn) {
     const newName = newNameInput.value.trim();
     if (!newName) return;
     await updateMyName(newName);
-    if (myLocalName) myLocalName.textContent = `${newName} (自然)`;
+    if (myLocalName) myLocalName.textContent = `${newName} (あなた)`;
     currentUserName = newName;
     newNameInput.value = "";
     alert("名前を更新しました");
@@ -336,7 +336,7 @@ tabButtons.forEach(button => {
       content.classList.toggle("active", content.id === `tabContent-${targetTab}`);
     });
     if (targetTab === "chat") scrollToBottom();
-    if (targetTab === "pdf") renderCurrentPage(); 
+    // 自動でサイズを変更する処理を完全排除
   });
 });
 
@@ -366,7 +366,7 @@ function appendMessage(sender, text, isMe = false) {
   bbl.textContent = text;
   bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%"; bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
   if (isMe) { bbl.style.backgroundColor = "#007bff"; bbl.style.color = "white"; }
-  else { bbl.style.backgroundColor = "#e9ecef"; bbl.style.color = "#33"; }
+  else { bbl.style.backgroundColor = "#e9ecef"; bbl.style.color = "#333"; }
   wrap.appendChild(bbl);
   chatMessages.appendChild(wrap);
   scrollToBottom();
