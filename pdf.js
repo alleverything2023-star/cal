@@ -2,34 +2,78 @@ import { saveStrokeToFirebase, listenStrokes, clearStrokesInFirebase, updatePdfP
 
 let pdfDoc = null;
 let currentPage = 1;
-// ① pdfScaleのステート保持
 let pdfScale = 1.0;
 let currentPdfUrl = null;
 let currentToken = null;
 
-// 要素取得
 const pdfCanvas = document.getElementById("pdfCanvas");
 const drawCanvas = document.getElementById("drawCanvas");
 const pdfScrollContainer = document.getElementById("pdfScrollContainer");
-const pdfWrapper = document.getElementById("pdfWrapper");
 const pageInfo = document.getElementById("pageInfo");
 
-// ① ズームツールバー要素
 const zoomInBtn = document.getElementById("zoomInBtn");
 const zoomOutBtn = document.getElementById("zoomOutBtn");
 const zoomLabel = document.getElementById("zoomLabel");
 
-// ⑧ 描画ツールバー要素
+// 新しいツールバー要素
 const penBtn = document.getElementById("penBtn");
 const eraserBtn = document.getElementById("eraserBtn");
+const brushColorInput = document.getElementById("brushColor");
+const brushSizeInput = document.getElementById("brushSize");
+const sizeLabel = document.getElementById("sizeLabel");
 const clearBtn = document.getElementById("clearBtn");
 
 const drawCtx = drawCanvas ? drawCanvas.getContext("2d") : null;
 let drawing = false;
 let currentStroke = [];
-let mode = "pen"; // pen or eraser
 
-// ① ズーム処理の実装
+// 初期状態はどちらも選択されていない状態 (none = 閲覧モード)
+let mode = "none"; 
+
+// ツールバーのインタラクション制御
+if (penBtn && eraserBtn) {
+  penBtn.onclick = () => {
+    if (mode === "pen") {
+      // 選択中に再度押されたら解除して「どちらでもない状態」にする
+      mode = "none";
+      penBtn.classList.remove("active");
+      drawCanvas.classList.remove("drawing-mode-active");
+    } else {
+      mode = "pen";
+      penBtn.classList.add("active");
+      eraserBtn.classList.remove("active");
+      drawCanvas.classList.add("drawing-mode-active");
+    }
+  };
+
+  eraserBtn.onclick = () => {
+    if (mode === "eraser") {
+      mode = "none";
+      eraserBtn.classList.remove("active");
+      drawCanvas.classList.remove("drawing-mode-active");
+    } else {
+      mode = "eraser";
+      eraserBtn.classList.add("active");
+      penBtn.classList.remove("active");
+      drawCanvas.classList.add("drawing-mode-active");
+    }
+  };
+}
+
+if (brushSizeInput && sizeLabel) {
+  brushSizeInput.oninput = () => {
+    sizeLabel.textContent = brushSizeInput.value;
+  };
+}
+
+if (clearBtn) {
+  clearBtn.onclick = () => {
+    if (confirm("このページのすべての手書き描画を消去しますか？")) {
+      clearStrokesInFirebase(currentPage);
+    }
+  };
+}
+
 if (zoomInBtn && zoomOutBtn) {
   zoomInBtn.onclick = () => {
     pdfScale = Math.min(5, pdfScale * 1.1);
@@ -47,38 +91,37 @@ function updateZoomLabel() {
   }
 }
 
-// ⑧ 描画ツールバーのモード切り替え
-if (penBtn && eraserBtn && clearBtn) {
-  penBtn.onclick = () => {
-    mode = "pen";
-    penBtn.classList.add("active");
-    eraserBtn.classList.remove("active");
-  };
-  eraserBtn.onclick = () => {
-    mode = "eraser";
-    eraserBtn.classList.add("active");
-    penBtn.classList.remove("active");
-  };
-  clearBtn.onclick = () => {
-    if (confirm("このページのすべての手書き描画を消去しますか？")) {
-      clearStrokesInFirebase(currentPage);
-    }
-  };
+// PDF読み込み不具合対策
+function getPdfJsLibrary() {
+  if (window.pdfjsLib) return window.pdfjsLib;
+  if (window['pdfjs-dist/build/pdf']) return window['pdfjs-dist/build/pdf'];
+  return null;
 }
 
-// PDFのロードとレンダリング開始
 export async function loadAndRenderPdf(url, token, pageNum = 1) {
+  const lib = getPdfJsLibrary();
+  if (!lib) {
+    console.error("PDF.jsライブラリの読み込みが確認できません。");
+    // 1秒後に再試行
+    setTimeout(() => loadAndRenderPdf(url, token, pageNum), 1000);
+    return;
+  }
+
+  // 統合されたグローバルワーカーを設定
+  if (!lib.GlobalWorkerOptions.workerSrc) {
+    lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  }
+
   if (currentPdfUrl !== url || currentToken !== token) {
     currentPdfUrl = url;
     currentToken = token;
     
     try {
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      const loadingTask = pdfjsLib.getDocument({ url: url, httpHeaders: headers });
+      const loadingTask = lib.getDocument({ url: url, httpHeaders: headers });
       pdfDoc = await loadingTask.promise;
       currentPage = pageNum;
       
-      // ページがロードされたらFirebaseのストローク受信をスタート
       setupFirebaseStrokeListener();
     } catch (err) {
       console.error("PDF読み込み失敗:", err);
@@ -91,13 +134,11 @@ export async function loadAndRenderPdf(url, token, pageNum = 1) {
   renderCurrentPage();
 }
 
-// ページのレンダリング処理
 export async function renderCurrentPage() {
   if (!pdfDoc || !pdfCanvas) return;
   
   try {
     const page = await pdfDoc.getPage(currentPage);
-    // ① pdfScale を適用
     const viewport = page.getViewport({ scale: pdfScale });
     
     const context = pdfCanvas.getContext('2d');
@@ -112,7 +153,6 @@ export async function renderCurrentPage() {
     await renderContext.promise;
     updateZoomLabel();
     
-    // ④ Canvasサイズ同期
     if (drawCanvas) {
       drawCanvas.width = pdfCanvas.width;
       drawCanvas.height = pdfCanvas.height;
@@ -122,7 +162,6 @@ export async function renderCurrentPage() {
       pageInfo.textContent = `${currentPage} / ${pdfDoc.numPages}`;
     }
     
-    // ページを切り替え・ズームした後に既存の全ストロークをローカルCanvasへ一斉再描画
     redrawAllSavedStrokes();
     
   } catch (err) {
@@ -130,21 +169,18 @@ export async function renderCurrentPage() {
   }
 }
 
-// ページ切り替え
 export function changePage(offset) {
   if (!pdfDoc) return;
   const newPage = currentPage + offset;
   if (newPage >= 1 && newPage <= pdfDoc.numPages) {
     currentPage = newPage;
-    updatePdfPageInFirebase(currentPage); // 全員へページ同期
+    updatePdfPageInFirebase(currentPage); 
     renderCurrentPage();
-    setupFirebaseStrokeListener(); // ページ切り替え時にリスナー再設定
+    setupFirebaseStrokeListener(); 
   }
 }
 
-// ② ピンチズームの実装
 let pinchStartDistance = null;
-
 function getDistance(t1, t2) {
   return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 }
@@ -170,18 +206,18 @@ if (pdfScrollContainer) {
   });
 }
 
-// ⑤ 手書きイベントの実装 (pointerイベントを使用することでマウス・タッチ両対応)
-let localStrokesArray = []; // ローカルに保持する現在のページの全ストロークデータ
+let localStrokesArray = []; 
 
 if (drawCanvas) {
   drawCanvas.addEventListener("pointerdown", e => {
+    if (mode === "none") return; // モード未選択時はなにもしない
     drawing = true;
     currentStroke = [];
     addPoint(e);
   });
 
   drawCanvas.addEventListener("pointermove", e => {
-    if (!drawing) return;
+    if (!drawing || mode === "none") return;
     addPoint(e);
     redrawCurrentStroke();
   });
@@ -193,7 +229,6 @@ if (drawCanvas) {
   });
 }
 
-// ⑤ PDF基準座標（Scaleで割った値）で座標を追加保存する
 function addPoint(e) {
   const rect = drawCanvas.getBoundingClientRect();
   currentStroke.push({
@@ -202,13 +237,14 @@ function addPoint(e) {
   });
 }
 
-// 現在書き中の線をレンダリング（リアルタイム追従用）
 function redrawCurrentStroke() {
   if (currentStroke.length < 1) return;
   
   drawCtx.beginPath();
-  drawCtx.lineWidth = mode === "eraser" ? 20 : 3;
-  drawCtx.strokeStyle = mode === "eraser" ? "rgba(0,0,0,1)" : "#ff0000";
+  const currentSize = parseInt(brushSizeInput.value, 10);
+  
+  drawCtx.lineWidth = currentSize;
+  drawCtx.strokeStyle = mode === "eraser" ? "rgba(0,0,0,1)" : brushColorInput.value;
   drawCtx.globalCompositeOperation = mode === "eraser" ? "destination-out" : "source-over";
   
   drawCtx.moveTo(currentStroke[0].x * pdfScale, currentStroke[0].y * pdfScale);
@@ -218,42 +254,37 @@ function redrawCurrentStroke() {
   drawCtx.stroke();
 }
 
-// ⑥ Firebase保存
 function saveStroke(strokePoints) {
   if (strokePoints.length === 0) return;
+  const currentSize = parseInt(brushSizeInput.value, 10);
   
   saveStrokeToFirebase(currentPage, {
     mode: mode,
-    color: mode === "eraser" ? "#000000" : "#ff0000",
-    width: mode === "eraser" ? 20 : 3,
+    color: mode === "eraser" ? "#000000" : brushColorInput.value,
+    width: currentSize,
     points: strokePoints
   });
 }
 
-// ⑦ リアルタイム受信の設定
 function setupFirebaseStrokeListener() {
   localStrokesArray = [];
-  
   listenStrokes(currentPage, 
     (stroke) => {
-      // 新しいストロークが追加された
       localStrokesArray.push(stroke);
       drawStroke(stroke);
     },
     () => {
-      // データがクリアされた
       localStrokesArray = [];
       clearDrawCanvasLocal();
     }
   );
 }
 
-// 保存された1本分のストローク線を Canvas 基準に拡大して描画
 function drawStroke(stroke) {
   if (!drawCtx || !stroke.points || stroke.points.length === 0) return;
   
   drawCtx.beginPath();
-  drawCtx.lineWidth = stroke.width;
+  drawCtx.lineWidth = stroke.width * pdfScale; // ズーム倍率を線の太さにも動的に反映
   drawCtx.strokeStyle = stroke.color;
   drawCtx.globalCompositeOperation = stroke.mode === "eraser" ? "destination-out" : "source-over";
   
@@ -265,7 +296,6 @@ function drawStroke(stroke) {
   drawCtx.stroke();
 }
 
-// ページ内に保存されているストロークを全て再レンダリングする
 function redrawAllSavedStrokes() {
   clearDrawCanvasLocal();
   localStrokesArray.forEach(stroke => {
@@ -277,8 +307,4 @@ function clearDrawCanvasLocal() {
   if (drawCtx && drawCanvas) {
     drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   }
-}
-
-export function clearDrawCanvas() {
-  clearDrawCanvasLocal();
 }
