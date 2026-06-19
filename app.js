@@ -1,11 +1,11 @@
-import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages, sendPdfToFirebase, listenPdfData } from "./room.js";
+import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData } from "./room.js";
 import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 
 // ==========================================
 // Google Drive Picker API の設定値
 // ==========================================
-// ★ご指定のPicker用キーに変更しました
+// ★ご指定 of Picker用キーに変更しました
 const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
 const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
 
@@ -56,6 +56,13 @@ const tabContents = document.querySelectorAll(".tab-content");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatMessages = document.getElementById("chatMessages");
+
+const imageBtn = document.getElementById("imageBtn");
+const imageInput = document.getElementById("imageInput");
+
+const imageViewer = document.getElementById("imageViewer");
+const viewerImage = document.getElementById("viewerImage");
+const closeImageViewer = document.getElementById("closeImageViewer");
 
 // ビデオ要素にストリームを設定するヘルパー
 function setVideoSrc(videoElement, stream) {
@@ -422,8 +429,20 @@ if (joinButton) {
     });
 
     // チャット監視
-    listenChatMessages((sender, text) => {
-      appendMessage(sender, text, sender === currentUserName);
+    listenChatMessages((msg) => {
+      if (msg.image) {
+        appendImageMessage(
+          msg.sender,
+          msg.image,
+          msg.sender === currentUserName
+        );
+      } else {
+        appendMessage(
+          msg.sender,
+          msg.text,
+          msg.sender === currentUserName
+        );
+      }
     });
 
     // PDFリンクリアルタイム監視
@@ -501,8 +520,68 @@ function appendMessage(sender, text, isMe = false) {
   scrollToBottom();
 }
 
+function appendImageMessage(sender, imageUrl, isMe=false){
+  const wrap = document.createElement("div");
+  wrap.style.display = "flex";
+  wrap.style.flexDirection = "column";
+  wrap.style.margin = "8px 0";
+
+  if(isMe){
+    wrap.style.alignItems = "flex-end";
+  }
+
+  const lbl = document.createElement("span");
+  lbl.textContent = isMe ? "あなた" : sender;
+  lbl.style.fontSize = "12px";
+  lbl.style.color = "#aaa";
+  lbl.style.marginBottom = "2px";
+
+  wrap.appendChild(lbl);
+
+  const img = document.createElement("img");
+  img.src = imageUrl;
+  img.className = "chat-image";
+
+  img.onclick = () => {
+    viewerImage.src = imageUrl;
+    imageViewer.style.display = "flex";
+  };
+
+  wrap.appendChild(img);
+  chatMessages.appendChild(wrap);
+  scrollToBottom();
+}
+
 function scrollToBottom() { if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight; }
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
 if (chatInput) chatInput.addEventListener("keydown", (e) => e.key === "Enter" && !e.isComposing && sendChatMessage());
+
+imageBtn.addEventListener("click", () => {
+  imageInput.click();
+});
+
+imageInput.addEventListener("change", () => {
+  const file = imageInput.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    sendImageMessageToFirebase(
+      currentUserName,
+      reader.result
+    );
+  };
+  reader.readAsDataURL(file);
+});
+
+closeImageViewer.addEventListener("click", () => {
+  imageViewer.style.display = "none";
+});
+
+imageViewer.addEventListener("click", (e) => {
+  if(e.target === imageViewer){
+    imageViewer.style.display = "none";
+  }
+});
 
 init();
