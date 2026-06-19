@@ -1,458 +1,310 @@
-import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData, updatePdfPageInFirebase } from "./room.js";
-import { getLocalStream, updateDeviceList } from "./devices.js";
-import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
-import { loadAndRenderPdf, renderCurrentPage, changePage, clearDrawCanvas } from "./pdf.js";
+import { saveStrokeToFirebase, listenStrokes, clearStrokesInFirebase, updatePdfPageInFirebase } from "./room.js";
 
-const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
-const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
-const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+let pdfDoc = null;
+let currentPage = 1;
+let pdfScale = 1.0;
+let currentPdfUrl = null;
+let currentToken = null;
 
-let accessToken = null;
-let gapiInited = false;
+const pdfCanvas = document.getElementById("pdfCanvas");
+const drawCanvas = document.getElementById("drawCanvas");
+const pdfScrollContainer = document.getElementById("pdfScrollContainer");
+const pageInfo = document.getElementById("pageInfo");
 
-let localStream = null;
-let isJoined = false;
-let currentUserName = "あなた";
+const zoomInBtn = document.getElementById("zoomInBtn");
+const zoomOutBtn = document.getElementById("zoomOutBtn");
+const zoomLabel = document.getElementById("zoomLabel");
 
-// HTML要素の取得
-const joinScreen = document.getElementById("joinScreen");
-const roomScreen = document.getElementById("roomScreen");
-const myPreviewVideo = document.getElementById("myPreviewVideo");
-const cameraSelect = document.getElementById("cameraSelect");
-const micSelect = document.getElementById("micSelect");
-const initCameraToggle = document.getElementById("initCameraToggle");
-const initMicToggle = document.getElementById("initMicToggle");
-const nameInput = document.getElementById("nameInput");
-const joinButton = document.getElementById("joinButton");
-const myLocalVideo = document.getElementById("myLocalVideo");
-const myLocalName = document.getElementById("myLocalName");
-const videoGrid = document.getElementById("videoGrid");
+// 新しいツールバー要素
+const penBtn = document.getElementById("penBtn");
+const eraserBtn = document.getElementById("eraserBtn");
+const brushColorInput = document.getElementById("brushColor");
+const brushSizeInput = document.getElementById("brushSize");
+const sizeLabel = document.getElementById("sizeLabel");
+const clearBtn = document.getElementById("clearBtn");
 
-const myCamBtn = document.getElementById("myCamBtn");
-const myMicBtn = document.getElementById("myMicBtn");
-const layoutToggleBtn = document.getElementById("layoutToggleBtn");
-const appLayout = document.getElementById("appLayout");
+const drawCtx = drawCanvas ? drawCanvas.getContext("2d") : null;
+let drawing = false;
+let currentStroke = [];
 
-const myCamStatus = document.getElementById("myCamStatus");
-const myMicStatus = document.getElementById("myMicStatus");
+// 初期状態はどちらも選択されていない状態 (none = 閲覧モード)
+let mode = "none"; 
 
-const settingsBtn = document.getElementById("settingsBtn");
-const settingsModal = document.getElementById("settingsModal");
-const closeSettingsBtn = document.getElementById("closeSettingsBtn");
-const themeToggleBtn = document.getElementById("themeToggleBtn");
-const newNameInput = document.getElementById("newNameInput");
-const updateNameBtn = document.getElementById("updateNameBtn");
-
-const tabButtons = document.querySelectorAll(".tab-btn");
-const tabContents = document.querySelectorAll(".tab-content");
-const chatInput = document.getElementById("chatInput");
-const chatSendBtn = document.getElementById("chatSendBtn");
-const chatMessages = document.getElementById("chatMessages");
-
-// ④ 画像エリア要素取得
-const imageBtn = document.getElementById("imageBtn");
-const imageInput = document.getElementById("imageInput");
-const imageViewer = document.getElementById("imageViewer");
-const viewerImage = document.getElementById("viewerImage");
-const closeImageViewer = document.getElementById("closeImageViewer");
-
-// PDFページ切り替えボタン
-const prevPageBtn = document.getElementById("prevPageBtn");
-const nextPageBtn = document.getElementById("nextPageBtn");
-
-function setVideoSrc(videoElement, stream) {
-  if (!videoElement) return;
-  videoElement.srcObject = stream;
-  videoElement.play().catch(err => console.log("ビデオ再生開始の待機中:", err));
-}
-
-function loadGoogleLibraries() {
-  return new Promise((resolve) => {
-    if (gapiInited) { resolve(true); return; }
-    if (typeof gapi === 'undefined') { resolve(false); return; }
-    gapi.load('picker', () => { gapiInited = true; resolve(true); });
-  });
-}
-
-async function init() {
-  if (joinScreen) {
-    joinScreen.style.display = "flex";
-    joinScreen.style.flexDirection = "column";
-    joinScreen.style.justifyContent = "center";
-    joinScreen.style.alignItems = "center";
-    joinScreen.style.minHeight = "100vh";
-    joinScreen.style.padding = "10px";
-    joinScreen.style.boxSizing = "border-box";
-    joinScreen.style.overflowY = "auto";
-
-    const joinContainer = joinScreen.querySelector(".join-container") || joinScreen.children[0];
-    if (joinContainer) {
-      joinContainer.style.maxHeight = "95vh";
-      joinContainer.style.maxWidth = "100%";
-      joinContainer.style.width = "400px";
-      joinContainer.style.overflowY = "auto";
-      joinContainer.style.boxSizing = "border-box";
-      joinContainer.style.padding = "20px";
-      joinContainer.style.margin = "auto";
-    }
-
-    if (myPreviewVideo) {
-      myPreviewVideo.style.maxWidth = "100%";
-      myPreviewVideo.style.maxHeight = "200px"; 
-      myPreviewVideo.style.borderRadius = "8px";
-      myPreviewVideo.style.objectFit = "cover";
-    }
-  }
-
-  // Google ドライブ Picker 起動ボタンの紐付け
-  const openDrivePickerBtn = document.getElementById("openDrivePickerBtn");
-  if (openDrivePickerBtn) {
-    openDrivePickerBtn.addEventListener("click", handleDrivePickerOpen);
-  }
-  const switchAccountBtn = document.getElementById("switchAccountBtn");
-  if (switchAccountBtn) {
-    switchAccountBtn.addEventListener("click", handleSwitchAccount);
-  }
-
-  await loadGoogleLibraries();
-
-  try {
-    localStream = await getLocalStream();
-    if (myPreviewVideo) { setVideoSrc(myPreviewVideo, localStream); }
-    await new Promise(r => setTimeout(r, 300));
-    await updateDeviceList();
-  } catch (e) { console.error("初期化エラー:", e); }
-}
-
-async function handleDrivePickerOpen() {
-  const ready = await loadGoogleLibraries();
-  if (!ready || typeof google === 'undefined') {
-    alert("Googleのシステムを読み込み中です。少し待ってからもう一度押してください。");
-    return;
-  }
-  if (!accessToken) {
-    try {
-      const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        prompt: 'select_account', 
-        callback: async (response) => {
-          if (response.error !== undefined) throw response;
-          accessToken = response.access_token;
-          createPicker();
-        },
-      });
-      tokenClient.requestAccessToken();
-    } catch (err) {
-      alert("認証画面の起動に失敗しました。");
-    }
-  } else {
-    createPicker();
-  }
-}
-
-function handleSwitchAccount() {
-  if (accessToken) {
-    try {
-      google.accounts.oauth2.revokeToken(accessToken, () => {
-        accessToken = null;
-        alert("アカウントを選択し直せます。");
-      });
-    } catch (err) {
-      accessToken = null;
-    }
-  } else {
-    alert("そのまま「PDFを選択」を押して別のアカウントを選んでください。");
-  }
-}
-
-function createPicker() {
-  if (!gapiInited || !accessToken) return;
-  try {
-    const docsView = new google.picker.DocsView().setMimeTypes("application/pdf");
-    const picker = new google.picker.PickerBuilder()
-      .addView(docsView)
-      .setOAuthToken(accessToken)
-      .setDeveloperKey(DEVELOPER_KEY)
-      .setCallback(pickerCallback)
-      .build();
-    picker.setVisible(true);
-  } catch (err) { alert(String(err)); }
-}
-
-async function pickerCallback(data) {
-  if (data.action === google.picker.Action.PICKED) {
-    const doc = data.docs[0];
-    // Google Driveから実バイナリをダウンロードするためのURL
-    const downloadUrl = `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
-    try {
-      await sendPdfToFirebase(downloadUrl, doc.name);
-    } catch (err) { alert("共有に失敗しました。"); }
-  }
-}
-
-async function handleDeviceChange() {
-  if (!localStream) return;
-  localStream.getTracks().forEach(track => { try { track.stop(); } catch(err) {} });
-  localStream = null;
-
-  try {
-    const targetCam = cameraSelect?.value || null;
-    const targetMic = micSelect?.value || null;
-    localStream = await getLocalStream(targetCam, targetMic);
-    
-    if (!isJoined) {
-      if (myPreviewVideo) setVideoSrc(myPreviewVideo, localStream);
+// ツールバーのインタラクション制御
+if (penBtn && eraserBtn) {
+  penBtn.onclick = () => {
+    if (mode === "pen") {
+      // 選択中に再度押されたら解除して「どちらでもない状態」にする
+      mode = "none";
+      penBtn.classList.remove("active");
+      drawCanvas.classList.remove("drawing-mode-active");
     } else {
-      if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
-      const vTrack = localStream.getVideoTracks()[0];
-      const aTrack = localStream.getAudioTracks()[0];
-      
-      if (vTrack && myCamBtn) vTrack.enabled = myCamBtn.classList.contains("on");
-      if (aTrack && myMicBtn) aTrack.enabled = myMicBtn.classList.contains("on");
-      
-      for (const id in peerConnections) {
-        const pc = peerConnections[id];
-        if (!pc) continue;
-        pc.getSenders().forEach(sender => {
-          if (sender.track?.kind === "video" && vTrack) sender.replaceTrack(vTrack);
-          if (sender.track?.kind === "audio" && aTrack) sender.replaceTrack(aTrack);
-        });
-      }
+      mode = "pen";
+      penBtn.classList.add("active");
+      eraserBtn.classList.remove("active");
+      drawCanvas.classList.add("drawing-mode-active");
     }
-  } catch (e) { console.error(e); }
-}
-
-if (cameraSelect) cameraSelect.addEventListener("change", handleDeviceChange);
-if (micSelect) micSelect.addEventListener("change", handleDeviceChange);
-
-if (settingsBtn) settingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "flex"));
-if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", () => settingsModal && (settingsModal.style.display = "none"));
-
-if (themeToggleBtn) {
-  themeToggleBtn.addEventListener("click", () => {
-    if (document.body.classList.contains("dark-theme")) {
-      document.body.classList.replace("dark-theme", "light-theme");
-      themeToggleBtn.textContent = "ダークモードに切替";
-    } else {
-      document.body.classList.replace("light-theme", "dark-theme");
-      themeToggleBtn.textContent = "ライトモードに切替";
-    }
-  });
-}
-
-if (updateNameBtn) {
-  updateNameBtn.addEventListener("click", async () => {
-    if (!newNameInput) return;
-    const newName = newNameInput.value.trim();
-    if (!newName) return;
-    await updateMyName(newName);
-    if (myLocalName) myLocalName.textContent = `${newName} (自然)`;
-    currentUserName = newName;
-    newNameInput.value = "";
-    alert("名前を更新しました");
-  });
-}
-
-if (layoutToggleBtn) {
-  layoutToggleBtn.addEventListener("click", () => {
-    if (appLayout) {
-      appLayout.classList.toggle("layout-default");
-      appLayout.classList.toggle("layout-sidebar");
-    }
-  });
-}
-
-if (myCamBtn) {
-  myCamBtn.addEventListener("click", () => {
-    if (!localStream) return;
-    const t = localStream.getVideoTracks()[0];
-    if (t) { 
-      t.enabled = !t.enabled; 
-      myCamBtn.classList.toggle("on", t.enabled); 
-      if (myCamStatus) myCamStatus.classList.toggle("on", t.enabled); 
-    }
-  });
-}
-
-if (myMicBtn) {
-  myMicBtn.addEventListener("click", () => {
-    if (!localStream) return;
-    const t = localStream.getAudioTracks()[0];
-    if (t) { 
-      t.enabled = !t.enabled; 
-      myMicBtn.classList.toggle("on", t.enabled); 
-      if (myMicStatus) myMicStatus.classList.toggle("on", t.enabled); 
-    }
-  });
-}
-
-// ページ送りボタンイベント
-if (prevPageBtn) { prevPageBtn.onclick = () => changePage(-1); }
-if (nextPageBtn) { nextPageBtn.onclick = () => changePage(1); }
-
-if (joinButton) {
-  joinButton.addEventListener("click", async () => {
-    if (!nameInput || !localStream) return;
-    const name = nameInput.value.trim();
-    if (!name) return alert("名前を入力してください");
-    currentUserName = name;
-
-    const videoTrack = localStream.getVideoTracks()[0];
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (videoTrack && initCameraToggle) videoTrack.enabled = initCameraToggle.checked;
-    if (audioTrack && initMicToggle) audioTrack.enabled = initMicToggle.checked;
-
-    if (myCamBtn && initCameraToggle) myCamBtn.classList.toggle("on", initCameraToggle.checked);
-    if (myCamStatus && initCameraToggle) myCamStatus.classList.toggle("on", initCameraToggle.checked);
-    if (myMicBtn && initMicToggle) myMicBtn.classList.toggle("on", initMicToggle.checked);
-    if (myMicStatus && initMicToggle) myMicStatus.classList.toggle("on", initMicToggle.checked);
-
-    await joinRoom(name);
-    isJoined = true;
-    if (joinScreen) joinScreen.style.display = "none";
-    if (roomScreen) roomScreen.style.display = "flex";
-    if (myLocalVideo) setVideoSrc(myLocalVideo, localStream);
-    if (myLocalName) myLocalName.textContent = `${name} (あなた)`;
-
-    listenParticipants((participants) => {
-      for (const id in peerConnections) {
-        if (!participants[id]) { closeP2P(id); document.getElementById(`card-${id}`)?.remove(); }
-      }
-      for (const id in participants) {
-        if (id !== myId && !peerConnections[id]) {
-          startP2P(id, localStream, (peerId, remoteStream) => { addVideoCard(peerId, participants[peerId].name, remoteStream); });
-        }
-      }
-      updateGridClass();
-    });
-
-    // ⑥ チャット受信
-    listenChatMessages((msg) => {
-      if (msg.image) {
-        appendImageMessage(msg.sender, msg.image, msg.sender === currentUserName);
-      } else {
-        appendMessage(msg.sender, msg.text, msg.sender === currentUserName);
-      }
-    });
-
-    // Firebase同期のPDFリンク監視
-    listenPdfData((pdfData) => {
-      const label = document.getElementById("pdfFileNameLabel");
-      if (label) label.textContent = `共有中: ${pdfData.name}`;
-      loadAndRenderPdf(pdfData.pdf, accessToken, pdfData.page);
-    });
-  });
-}
-
-function addVideoCard(id, name, stream) {
-  if (!videoGrid || document.getElementById(`card-${id}`)) return;
-  const card = document.createElement("div");
-  card.className = "videoCard";
-  card.id = `card-${id}`;
-  card.innerHTML = `
-    <div class="video-wrapper"><video autoplay playsinline></video></div>
-    <div class="videoControlBar"><span class="videoName">${name}</span></div>
-  `;
-  setVideoSrc(card.querySelector("video"), stream);
-  videoGrid.appendChild(card);
-  updateGridClass();
-}
-
-function updateGridClass() {
-  if (!videoGrid) return;
-  videoGrid.className = "count-" + videoGrid.querySelectorAll(".videoCard").length;
-}
-
-tabButtons.forEach(button => {
-  button.addEventListener("click", () => {
-    tabButtons.forEach(btn => btn.classList.remove("active"));
-    button.classList.add("active");
-    const targetTab = button.getAttribute("data-tab");
-    tabContents.forEach(content => {
-      content.classList.toggle("active", content.id === `tabContent-${targetTab}`);
-    });
-    if (targetTab === "chat") scrollToBottom();
-    if (targetTab === "pdf") renderCurrentPage(); // タブを開き直した時の再描写
-  });
-});
-
-function sendChatMessage() {
-  if (!chatInput) return;
-  const text = chatInput.value.trim();
-  if (!text) return;
-  sendChatMessageToFirebase(currentUserName, text);
-  chatInput.value = "";
-  chatInput.focus();
-}
-
-function appendMessage(sender, text, isMe = false) {
-  if (!chatMessages) return;
-  const wrap = document.createElement("div");
-  wrap.style.display = "flex";
-  wrap.style.flexDirection = "column";
-  wrap.style.margin = "8px 0";
-  if (isMe) wrap.style.alignItems = "flex-end";
-
-  const lbl = document.createElement("span");
-  lbl.textContent = isMe ? "あなた" : sender;
-  lbl.style.fontSize = "12px"; lbl.style.color = "#aaa"; lbl.style.marginBottom = "2px";
-  wrap.appendChild(lbl);
-
-  const bbl = document.createElement("div");
-  bbl.textContent = text;
-  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%"; bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
-  if (isMe) { bbl.style.backgroundColor = "#007bff"; bbl.style.color = "white"; }
-  else { bbl.style.backgroundColor = "#e9ecef"; bbl.style.color = "#333"; }
-  wrap.appendChild(bbl);
-  chatMessages.appendChild(wrap);
-  scrollToBottom();
-}
-
-// ⑦ 画像表示関数追加
-function appendImageMessage(sender, imageUrl, isMe=false){
-  const wrap = document.createElement("div");
-  wrap.style.display = "flex";
-  wrap.style.flexDirection = "column";
-  wrap.style.margin = "8px 0";
-  if(isMe) wrap.style.alignItems = "flex-end";
-
-  const lbl = document.createElement("span");
-  lbl.textContent = isMe ? "あなた" : sender;
-  lbl.style.fontSize = "12px"; lbl.style.color = "#aaa"; lbl.style.marginBottom = "2px";
-  wrap.appendChild(lbl);
-
-  const img = document.createElement("img");
-  img.src = imageUrl;
-  img.className = "chat-image";
-  img.onclick = () => {
-    viewerImage.src = imageUrl;
-    imageViewer.style.display = "flex";
   };
 
-  wrap.appendChild(img);
-  chatMessages.appendChild(wrap);
-  scrollToBottom();
+  eraserBtn.onclick = () => {
+    if (mode === "eraser") {
+      mode = "none";
+      eraserBtn.classList.remove("active");
+      drawCanvas.classList.remove("drawing-mode-active");
+    } else {
+      mode = "eraser";
+      eraserBtn.classList.add("active");
+      penBtn.classList.remove("active");
+      drawCanvas.classList.add("drawing-mode-active");
+    }
+  };
 }
 
-function scrollToBottom() { if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight; }
-if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
-if (chatInput) chatInput.addEventListener("keydown", (e) => e.key === "Enter" && !e.isComposing && sendChatMessage());
+if (brushSizeInput && sizeLabel) {
+  brushSizeInput.oninput = () => {
+    sizeLabel.textContent = brushSizeInput.value;
+  };
+}
 
-// ⑤ 画像送信イベント
-imageBtn.addEventListener("click", () => { imageInput.click(); });
-imageInput.addEventListener("change", () => {
-  const file = imageInput.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => { sendImageMessageToFirebase(currentUserName, reader.result); };
-  reader.readAsDataURL(file);
-});
+if (clearBtn) {
+  clearBtn.onclick = () => {
+    if (confirm("このページのすべての手書き描画を消去しますか？")) {
+      clearStrokesInFirebase(currentPage);
+    }
+  };
+}
 
-// ⑧ 拡大画像を閉じる
-closeImageViewer.addEventListener("click", () => { imageViewer.style.display = "none"; });
-imageViewer.addEventListener("click", (e) => {
-  if(e.target === imageViewer) imageViewer.style.display = "none";
-});
+if (zoomInBtn && zoomOutBtn) {
+  zoomInBtn.onclick = () => {
+    pdfScale = Math.min(5, pdfScale * 1.1);
+    renderCurrentPage();
+  };
+  zoomOutBtn.onclick = () => {
+    pdfScale = Math.max(0.5, pdfScale * 0.9);
+    renderCurrentPage();
+  };
+}
 
-init();
+function updateZoomLabel() {
+  if (zoomLabel) {
+    zoomLabel.textContent = Math.round(pdfScale * 100) + "%";
+  }
+}
+
+// PDF読み込み不具合対策
+function getPdfJsLibrary() {
+  if (window.pdfjsLib) return window.pdfjsLib;
+  if (window['pdfjs-dist/build/pdf']) return window['pdfjs-dist/build/pdf'];
+  return null;
+}
+
+export async function loadAndRenderPdf(url, token, pageNum = 1) {
+  const lib = getPdfJsLibrary();
+  if (!lib) {
+    console.error("PDF.jsライブラリの読み込みが確認できません。");
+    // 1秒後に再試行
+    setTimeout(() => loadAndRenderPdf(url, token, pageNum), 1000);
+    return;
+  }
+
+  // 統合されたグローバルワーカーを設定
+  if (!lib.GlobalWorkerOptions.workerSrc) {
+    lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  }
+
+  if (currentPdfUrl !== url || currentToken !== token) {
+    currentPdfUrl = url;
+    currentToken = token;
+    
+    try {
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const loadingTask = lib.getDocument({ url: url, httpHeaders: headers });
+      pdfDoc = await loadingTask.promise;
+      currentPage = pageNum;
+      
+      setupFirebaseStrokeListener();
+    } catch (err) {
+      console.error("PDF読み込み失敗:", err);
+      return;
+    }
+  } else {
+    currentPage = pageNum;
+  }
+  
+  renderCurrentPage();
+}
+
+export async function renderCurrentPage() {
+  if (!pdfDoc || !pdfCanvas) return;
+  
+  try {
+    const page = await pdfDoc.getPage(currentPage);
+    const viewport = page.getViewport({ scale: pdfScale });
+    
+    const context = pdfCanvas.getContext('2d');
+    pdfCanvas.width = viewport.width;
+    pdfCanvas.height = viewport.height;
+    
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport
+    };
+    
+    await renderContext.promise;
+    updateZoomLabel();
+    
+    if (drawCanvas) {
+      drawCanvas.width = pdfCanvas.width;
+      drawCanvas.height = pdfCanvas.height;
+    }
+    
+    if (pageInfo) {
+      pageInfo.textContent = `${currentPage} / ${pdfDoc.numPages}`;
+    }
+    
+    redrawAllSavedStrokes();
+    
+  } catch (err) {
+    console.error("ページ描画エラー:", err);
+  }
+}
+
+export function changePage(offset) {
+  if (!pdfDoc) return;
+  const newPage = currentPage + offset;
+  if (newPage >= 1 && newPage <= pdfDoc.numPages) {
+    currentPage = newPage;
+    updatePdfPageInFirebase(currentPage); 
+    renderCurrentPage();
+    setupFirebaseStrokeListener(); 
+  }
+}
+
+let pinchStartDistance = null;
+function getDistance(t1, t2) {
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+
+if (pdfScrollContainer) {
+  pdfScrollContainer.addEventListener("touchstart", e => {
+    if (e.touches.length === 2) {
+      pinchStartDistance = getDistance(e.touches[0], e.touches[1]);
+    }
+  });
+
+  pdfScrollContainer.addEventListener("touchmove", e => {
+    if (e.touches.length === 2 && pinchStartDistance) {
+      const newDistance = getDistance(e.touches[0], e.touches[1]);
+      const ratio = newDistance / pinchStartDistance;
+      
+      pdfScale *= ratio;
+      pdfScale = Math.min(5, Math.max(0.5, pdfScale));
+      
+      pinchStartDistance = newDistance;
+      renderCurrentPage();
+    }
+  });
+}
+
+let localStrokesArray = []; 
+
+if (drawCanvas) {
+  drawCanvas.addEventListener("pointerdown", e => {
+    if (mode === "none") return; // モード未選択時はなにもしない
+    drawing = true;
+    currentStroke = [];
+    addPoint(e);
+  });
+
+  drawCanvas.addEventListener("pointermove", e => {
+    if (!drawing || mode === "none") return;
+    addPoint(e);
+    redrawCurrentStroke();
+  });
+
+  drawCanvas.addEventListener("pointerup", () => {
+    if (!drawing) return;
+    drawing = false;
+    saveStroke(currentStroke);
+  });
+}
+
+function addPoint(e) {
+  const rect = drawCanvas.getBoundingClientRect();
+  currentStroke.push({
+    x: (e.clientX - rect.left) / pdfScale,
+    y: (e.clientY - rect.top) / pdfScale
+  });
+}
+
+function redrawCurrentStroke() {
+  if (currentStroke.length < 1) return;
+  
+  drawCtx.beginPath();
+  const currentSize = parseInt(brushSizeInput.value, 10);
+  
+  drawCtx.lineWidth = currentSize;
+  drawCtx.strokeStyle = mode === "eraser" ? "rgba(0,0,0,1)" : brushColorInput.value;
+  drawCtx.globalCompositeOperation = mode === "eraser" ? "destination-out" : "source-over";
+  
+  drawCtx.moveTo(currentStroke[0].x * pdfScale, currentStroke[0].y * pdfScale);
+  for (let i = 1; i < currentStroke.length; i++) {
+    drawCtx.lineTo(currentStroke[i].x * pdfScale, currentStroke[i].y * pdfScale);
+  }
+  drawCtx.stroke();
+}
+
+function saveStroke(strokePoints) {
+  if (strokePoints.length === 0) return;
+  const currentSize = parseInt(brushSizeInput.value, 10);
+  
+  saveStrokeToFirebase(currentPage, {
+    mode: mode,
+    color: mode === "eraser" ? "#000000" : brushColorInput.value,
+    width: currentSize,
+    points: strokePoints
+  });
+}
+
+function setupFirebaseStrokeListener() {
+  localStrokesArray = [];
+  listenStrokes(currentPage, 
+    (stroke) => {
+      localStrokesArray.push(stroke);
+      drawStroke(stroke);
+    },
+    () => {
+      localStrokesArray = [];
+      clearDrawCanvasLocal();
+    }
+  );
+}
+
+function drawStroke(stroke) {
+  if (!drawCtx || !stroke.points || stroke.points.length === 0) return;
+  
+  drawCtx.beginPath();
+  drawCtx.lineWidth = stroke.width * pdfScale; // ズーム倍率を線の太さにも動的に反映
+  drawCtx.strokeStyle = stroke.color;
+  drawCtx.globalCompositeOperation = stroke.mode === "eraser" ? "destination-out" : "source-over";
+  
+  const p = stroke.points;
+  drawCtx.moveTo(p[0].x * pdfScale, p[0].y * pdfScale);
+  for (let i = 1; i < p.length; i++) {
+    drawCtx.lineTo(p[i].x * pdfScale, p[i].y * pdfScale);
+  }
+  drawCtx.stroke();
+}
+
+function redrawAllSavedStrokes() {
+  clearDrawCanvasLocal();
+  localStrokesArray.forEach(stroke => {
+    drawStroke(stroke);
+  });
+}
+
+function clearDrawCanvasLocal() {
+  if (drawCtx && drawCanvas) {
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  }
+}
