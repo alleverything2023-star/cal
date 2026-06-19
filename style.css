@@ -1,6 +1,3 @@
-/* ========================================================
-   テーマカラーの設定 (cal-main 2 ベース)
-   ======================================================== */
 .dark-theme {
   --bg-main: #1e1f22;
   --bg-card: #2b2d31;
@@ -12,7 +9,6 @@
   --danger: #da373c;
   --success: #248046;
 }
-
 .light-theme {
   --bg-main: #f2f3f5;
   --bg-card: #ffffff;
@@ -25,11 +21,7 @@
   --success: #248046;
 }
 
-* { 
-  box-sizing: border-box; 
-  margin: 0; 
-  padding: 0; 
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body, html {
   width: 100%;
@@ -39,9 +31,6 @@ body, html {
   color: var(--text-main);
 }
 
-/* ========================================================
-   入室画面 (joinScreen) のスタイル
-   ======================================================== */
 #joinScreen {
   display: flex;
   justify-content: center;
@@ -51,165 +40,145 @@ body, html {
   background-color: var(--bg-main);
   padding: 20px;
 }
-
-.setup-container { 
-  background: var(--bg-card); 
-  padding: 35px; 
-  border-radius: 16px; 
-  width: 100%; 
-  max-width: 500px; 
-  box-shadow: 0 12px 32px rgba(0,0,0,0.3); 
-  text-align: center; 
+.setup-container {
+  background: var(--bg-card);
+  padding: 35px;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+  text-align: center;
+}
+.setup-container h2 {
+  margin-bottom: 20px;
+  font-size: 1.6rem;
+}
+.preview-box {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.preview-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.toggle-controls {
+  margin-bottom: 20px;
+  text-align: left;
+}
+.toggle-controls label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.device-selects {
+  margin-bottom: 20px;
+}
+.select-field {
+  margin-bottom: 14px;
+  text-align: left;
+}
+.select-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+select, input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  margin-top: 5px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-size: 1rem;
+}
+#joinButton {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  margin-top: 25px;
+  font-size: 1.1rem;
+  cursor: pointer;
 }
 
-.setup-container h2 { 
-  margin-bottom: 20px; 
-  font-size: 1.6rem; 
+/* 通話中画面の全体レイアウト */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100dvh;
+}
+.main-content {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+  min-height: 0;
 }
 
-.preview-box { 
-  width: 100%; 
-  aspect-ratio: 16/9; 
-  background: #000; 
-  border-radius: 8px; 
-  margin-bottom: 20px; 
-  overflow: hidden; 
+/* 2の分割比率・レイアウト設定を完全再現 */
+.layout-default #leftContainer {
+  flex: 7;
+  background: var(--bg-left);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  transition: flex 0.25s ease;
+}
+.layout-default #rightContainer {
+  flex: 3;
+  background: var(--bg-card);
+  border-left: 1px solid #2b2d31;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  transition: flex 0.25s ease;
 }
 
-.preview-box video { 
-  width: 100%; 
-  height: 100%; 
-  object-fit: cover; 
+.layout-sidebar #leftContainer {
+  flex: 1;
+  background: var(--bg-left);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 15px 5px;
+  transition: flex 0.25s ease;
+}
+.layout-sidebar #rightContainer {
+  flex: 4;
+  background: var(--bg-card);
+  border-left: 1px solid #2b2d31;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  transition: flex 0.25s ease;
 }
 
-.toggle-controls { 
-  margin-bottom: 20px; 
-  text-align: left; 
+/* ビデオカードの配置グリッド設定 */
+.layout-default #videoGrid {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  justify-content: center;
+  align-content: center;
+  box-sizing: border-box;
 }
-
-.toggle-controls label { 
-  display: block; 
-  margin-bottom: 12px; 
-  font-size: 1rem; 
-  cursor: pointer; 
-}
-
-.device-selects { 
-  margin-bottom: 20px; 
-}
-
-.select-field { 
-  margin-bottom: 14px; 
-  text-align: left; 
-}
-
-.select-field label { 
-  display: block; 
-  font-size: 0.85rem; 
-  color: var(--text-muted); 
-  margin-bottom: 6px; 
-}
-
-select, input[type="text"] { 
-  width: 100%; 
-  padding: 12px; 
-  margin-top: 5px; 
-  border-radius: 8px; 
-  border: 1px solid rgba(255,255,255,0.1); 
-  background: var(--bg-input); 
-  color: var(--text-main); 
-  font-size: 1rem; 
-}
-
-#joinButton { 
-  width: 100%; 
-  padding: 14px; 
-  background: var(--accent); 
-  color: white; 
-  border: none; 
-  border-radius: 8px; 
-  font-weight: bold; 
-  margin-top: 25px; 
-  font-size: 1.1rem; 
-  cursor: pointer; 
-}
-
-/* ========================================================
-   メインルーム画面のレイアウト（cal-main 2 比率の完全復活）
-   ======================================================== */
-.app-layout { 
-  display: flex; 
-  flex-direction: column; 
-  width: 100vw; 
-  height: 100dvh; 
-}
-
-.main-content { 
-  display: flex; 
-  flex: 1; 
-  width: 100%; 
-  overflow: hidden; 
-  min-height: 0; 
-}
-
-/* デフォルト：ビデオが広く、右パネルが狭い（7:3） */
-.layout-default #leftContainer { 
-  flex: 7; 
-  background: var(--bg-left); 
-  display: flex; 
-  justify-content: center; 
-  align-items: center; 
-  overflow: hidden; 
-  transition: flex 0.25s ease; 
-}
-
-.layout-default #rightContainer { 
-  flex: 3; 
-  background: var(--bg-card); 
-  border-left: 1px solid #2b2d31; 
-  padding: 15px; 
-  display: flex; 
-  flex-direction: column; 
-  transition: flex 0.25s ease; 
-}
-
-/* サイドバーモード：ビデオを1列にし、右パネル（PDF・チャット）を広くする（1:4） */
-.layout-sidebar #leftContainer { 
-  flex: 1; 
-  background: var(--bg-left); 
-  overflow-y: auto; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: flex-start; 
-  padding: 15px 5px; 
-  transition: flex 0.25s ease; 
-}
-
-.layout-sidebar #rightContainer { 
-  flex: 4; 
-  background: var(--bg-card); 
-  border-left: 1px solid #2b2d31; 
-  padding: 15px; 
-  display: flex; 
-  flex-direction: column; 
-  transition: flex 0.25s ease; 
-}
-
-/* ========================================================
-   ビデオグリッドシステム (cal-main 2 ベース)
-   ======================================================== */
-.layout-default #videoGrid { 
-  display: grid; 
-  gap: 20px; 
-  width: 100%; 
-  height: 100%; 
-  padding: 20px; 
-  justify-content: center; 
-  align-content: center; 
-  box-sizing: border-box; 
-}
-
 .layout-default #videoGrid.count-1 { grid-template-columns: minmax(200px, 650px); }
 .layout-default #videoGrid.count-2 { grid-template-columns: repeat(2, minmax(150px, 500px)); }
 .layout-default #videoGrid.count-3 { grid-template-columns: repeat(2, minmax(150px, 450px)); }
@@ -217,287 +186,243 @@ select, input[type="text"] {
 .layout-default #videoGrid.count-4 { grid-template-columns: repeat(2, minmax(150px, 480px)); }
 .layout-default #videoGrid.count-many { grid-template-columns: repeat(3, 1fr); }
 
-.layout-sidebar #videoGrid { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 15px; 
-  width: 100%; 
+.layout-sidebar #videoGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
 }
 
-.videoCard { 
-  background: #000; 
-  border-radius: 12px; 
-  overflow: hidden; 
-  position: relative; 
-  box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
-  aspect-ratio: 16/9; 
-  width: 100%; 
-  display: flex; 
-  flex-direction: column; 
+.videoCard {
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  aspect-ratio: 16/9;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.video-wrapper {
+  flex: 1;
+  position: relative;
+  background: #000;
+}
+.video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0; left: 0;
+}
+.videoControlBar {
+  height: 40px;
+  background: #111214;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: #fff;
+}
+.videoName {
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+.btn-group {
+  display: flex;
+  gap: 8px;
 }
 
-.video-wrapper { 
-  flex: 1; 
-  position: relative; 
-  background: #000; 
+/* 最上部4つのコントロールボタン(マイク、カメラ、比率、設定)の復活と固定用 */
+.side-panel-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  align-items: center;
+}
+.action-control-btn {
+  flex: 1;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+.action-control-btn.on {
+  background: rgba(88, 101, 242, 0.15);
+}
+.action-control-btn.on:hover {
+  background: rgba(88, 101, 242, 0.3);
+}
+.settings-gear {
+  font-size: 1.2rem;
+  background: rgba(0,0,0,0.3);
+}
+.settings-gear:hover {
+  background: rgba(0,0,0,0.5);
+}
+.action-control-btn:not(.settings-gear):not(.on) {
+  background: rgba(218, 55, 60, 0.15);
+}
+.action-control-btn:not(.settings-gear):not(.on):hover {
+  background: rgba(218, 55, 60, 0.3);
 }
 
-.video-wrapper video { 
-  width: 100%; 
-  height: 100%; 
-  object-fit: cover; 
-  position: absolute; 
-  top: 0; 
-  left: 0; 
+/* マイク・カメラなどのアイコン崩れ防止・斜線アニメーション完全復旧 */
+.icon-svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.action-control-btn:not(.settings-gear):not(.on) .icon-svg {
+  stroke: var(--danger);
+}
+.slash-line {
+  display: none;
+  stroke-width: 2;
+}
+.action-control-btn:not(.settings-gear):not(.on) .slash-line {
+  display: block;
 }
 
-.videoControlBar { 
-  height: 40px; 
-  background: #111214; 
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between; 
-  padding: 0 12px; 
-  color: #fff; 
+.status-indicator {
+  width: 26px;
+  height: 26px;
+  background: rgba(218, 55, 60, 0.2);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.status-indicator .icon-svg {
+  width: 14px;
+  height: 14px;
+  stroke: var(--danger);
+}
+.status-indicator.on {
+  background: rgba(255,255,255,0.1);
+}
+.status-indicator.on .icon-svg {
+  stroke: #b5bac1;
+}
+.status-indicator.on .slash-line {
+  display: none;
+}
+.status-indicator:not(.on) .slash-line {
+  display: block;
 }
 
-.videoName { 
-  font-size: 0.9rem; 
-  font-weight: 500; 
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-  max-width: 60%; 
+/* 下部タブ表示システム */
+.side-panel-body {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  background: rgba(0,0,0,0.1);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.tab-content {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  padding: 10px;
+  flex-direction: column;
+}
+.tab-content.active {
+  display: flex;
+}
+.tab-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+.side-tab-bar {
+  display: flex;
+  background: var(--bg-left);
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+.tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.tab-btn span {
+  font-size: 0.7rem;
+}
+.tab-btn:hover {
+  background: rgba(255,255,255,0.05);
+}
+.tab-btn.active {
+  background: var(--bg-card);
+  color: var(--accent);
+  font-weight: bold;
 }
 
-.btn-group { 
-  display: flex; 
-  gap: 8px; 
+/* チャット・メッセージ・画像送信関連 */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
-
-/* ========================================================
-   コントロールボタン & SVGアイコン制御 (崩れを完全修正)
-   ======================================================== */
-.side-panel-header { 
-  display: flex; 
-  gap: 10px; 
-  margin-bottom: 15px; 
-  align-items: center; 
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-
-.action-control-btn { 
-  flex: 1; 
-  height: 40px; 
-  border: none; 
-  border-radius: 8px; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  font-weight: bold; 
-  transition: background 0.2s; 
+.chat-system {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 10px 0;
 }
-
-.action-control-btn.on { 
-  background: rgba(88, 101, 242, 0.15); 
+.chat-input-area {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
-
-.action-control-btn.on:hover { 
-  background: rgba(88, 101, 242, 0.3); 
+.chat-input-area input[type="text"] {
+  flex: 1;
+  margin-top: 0;
 }
-
-.settings-gear { 
-  font-size: 1.2rem; 
-  background: rgba(0,0,0,0.3); 
-  color: var(--text-main);
+.chat-input-area button {
+  padding: 0 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
 }
-
-.settings-gear:hover { 
-  background: rgba(0,0,0,0.5); 
-}
-
-.action-control-btn:not(.settings-gear):not(.on) { 
-  background: rgba(218, 55, 60, 0.15); 
-}
-
-.action-control-btn:not(.settings-gear):not(.on):hover { 
-  background: rgba(218, 55, 60, 0.3); 
-}
-
-/* マイク・カメラのSVG崩れを防ぐ記述 */
-.icon-svg { 
-  width: 20px; 
-  height: 20px; 
-  stroke: var(--accent); 
-  fill: none; 
-  stroke-width: 2; 
-  stroke-linecap: round; 
-  stroke-linejoin: round; 
-}
-
-.action-control-btn:not(.settings-gear):not(.on) .icon-svg { 
-  stroke: var(--danger); 
-}
-
-/* 斜線 (ミュート) の出し入れ */
-.slash-line { 
-  display: none; 
-  stroke-width: 2; 
-}
-
-.action-control-btn:not(.settings-gear):not(.on) .slash-line { 
-  display: block; 
-}
-
-/* ビデオカード内のステータス用 */
-.status-indicator { 
-  width: 26px; 
-  height: 26px; 
-  background: rgba(218, 55, 60, 0.2); 
-  border-radius: 6px; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-}
-
-.status-indicator .icon-svg { 
-  width: 14px; 
-  height: 14px; 
-  stroke: var(--danger); 
-}
-
-.status-indicator.on { 
-  background: rgba(255,255,255,0.1); 
-}
-
-.status-indicator.on .icon-svg { 
-  stroke: #b5bac1; 
-}
-
-.status-indicator.on .slash-line { 
-  display: none; 
-}
-
-.status-indicator:not(.on) .slash-line { 
-  display: block; 
-}
-
-/* ========================================================
-   タブシステム
-   ======================================================== */
-.side-panel-body { 
-  flex: 1; 
-  position: relative; 
-  min-height: 0; 
-  background: rgba(0,0,0,0.1); 
-  border-radius: 8px; 
-  margin-bottom: 10px; 
-}
-
-.tab-content { 
-  display: none; 
-  position: absolute; 
-  top:0; left:0; right:0; bottom:0; 
-  padding: 10px; 
-  flex-direction: column; 
-}
-
-.tab-content.active { 
-  display: flex; 
-}
-
-.tab-placeholder { 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  height: 100%; 
-  color: var(--text-muted); 
-  font-size: 0.95rem; 
-}
-
-.side-tab-bar { 
-  display: flex; 
-  background: var(--bg-left); 
-  border-radius: 8px; 
-  padding: 4px; 
-  gap: 4px; 
-}
-
-.tab-btn { 
-  flex: 1; 
-  background: none; 
-  border: none; 
-  color: var(--text-muted); 
-  padding: 8px 4px; 
-  cursor: pointer; 
-  font-size: 0.8rem; 
-  border-radius: 6px; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  gap: 2px; 
-}
-
-.tab-btn span { 
-  font-size: 0.7rem; 
-}
-
-.tab-btn:hover { 
-  background: rgba(255,255,255,0.05); 
-}
-
-.tab-btn.active { 
-  background: var(--bg-card); 
-  color: var(--accent); 
-  font-weight: bold; 
-}
-
-/* ========================================================
-   チャット機能関連
-   ======================================================== */
-.chat-container { 
-  display: flex; 
-  flex-direction: column; 
-  height: 100%; 
-}
-
-.chat-messages { 
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 5px; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 2px; 
-}
-
-.chat-system { 
-  text-align: center; 
-  color: var(--text-muted); 
-  font-size: 0.8rem; 
-  margin: 10px 0; 
-}
-
-.chat-input-area { 
-  display: flex; 
-  gap: 8px; 
-  margin-top: 10px; 
-}
-
-.chat-input-area input[type="text"] { 
-  flex: 1; 
-  margin-top: 0; 
-}
-
-.chat-input-area button { 
-  padding: 0 16px; 
-  background: var(--accent); 
-  color: white; 
-  border: none; 
-  border-radius: 8px; 
-  font-weight: bold; 
-  cursor: pointer; 
-}
-
 #imageBtn {
   background: var(--bg-input);
   border: 1px solid rgba(255,255,255,0.1);
@@ -506,7 +431,6 @@ select, input[type="text"] {
   border-radius: 8px;
   cursor: pointer;
 }
-
 .chat-image {
   max-width: 180px;
   max-height: 140px;
@@ -517,21 +441,17 @@ select, input[type="text"] {
   object-fit: cover;
 }
 
-/* ========================================================
-   【新規：3よりマージ】PDF共有およびキャンバス描画のスタイル
-   ======================================================== */
+/* 3で追加されたPDF・キャンバス共有機能パーツを退避・マージ */
 .pdf-container-root {
   display: flex;
   flex-direction: column;
   height: 100%;
   gap: 8px;
 }
-
 .top-controls {
   display: flex;
   gap: 8px;
 }
-
 .top-controls button {
   flex: 1;
   padding: 8px;
@@ -543,7 +463,6 @@ select, input[type="text"] {
   border-radius: 6px;
   cursor: pointer;
 }
-
 .pdf-controls-bar {
   display: flex;
   flex-wrap: wrap;
@@ -554,14 +473,12 @@ select, input[type="text"] {
   align-items: center;
   justify-content: space-between;
 }
-
 .pdf-page-nav, .pdf-toolbar, .draw-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 0.85rem;
 }
-
 .pdf-controls-bar button {
   background: #444;
   color: #fff;
@@ -570,11 +487,9 @@ select, input[type="text"] {
   border-radius: 4px;
   cursor: pointer;
 }
-
 .pdf-controls-bar button:hover {
   background: #555;
 }
-
 .draw-toolbar input[type="color"] {
   border: none;
   width: 24px;
@@ -582,17 +497,14 @@ select, input[type="text"] {
   background: none;
   cursor: pointer;
 }
-
 .brush-size-container {
   display: flex;
   align-items: center;
   gap: 4px;
 }
-
 .brush-size-container input[type="range"] {
   width: 60px;
 }
-
 #pdfFileNameLabel {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -601,7 +513,6 @@ select, input[type="text"] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .pdf-scroll-container {
   flex: 1;
   overflow: auto;
@@ -613,75 +524,61 @@ select, input[type="text"] {
   align-items: flex-start;
   padding: 10px;
 }
-
 #pdfWrapper {
   position: relative;
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
-
-/* PDFの上に透過状態で手書きCanvasをぴったり重ねる設定 */
 #pdfCanvas {
   display: block;
 }
-
 #drawCanvas {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   z-index: 5;
   cursor: crosshair;
 }
 
-/* ========================================================
-   モーダル・その他共通パーツ
-   ======================================================== */
-.modal-overlay { 
-  position: fixed; 
-  top: 0; left: 0; width: 100%; height: 100%; 
-  background: rgba(0,0,0,0.6); 
-  z-index: 1000; 
-  display: flex; 
-  justify-content: center; 
-  align-items: center; 
+/* 設定モーダル関連 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
-
-.modal-content { 
-  background: var(--bg-card); 
-  padding: 24px; 
-  border-radius: 10px; 
-  width: 320px; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 16px; 
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+.modal-content {
+  background: var(--bg-card);
+  padding: 24px;
+  border-radius: 10px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-
-.modal-item { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 6px; 
-  text-align: left;
+.modal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-
-.modal-item input { 
-  padding: 8px; 
-  background: var(--bg-main); 
-  color: var(--text-main); 
-  border: 1px solid #444; 
-  border-radius: 4px; 
+.modal-item input {
+  padding: 8px;
+  background: var(--bg-main);
+  color: var(--text-main);
+  border: 1px solid #444;
+  border-radius: 4px;
 }
-
-.modal-item button, .close-btn { 
-  padding: 8px; 
-  background: var(--accent); 
-  color: white; 
-  border: none; 
-  border-radius: 4px; 
-  cursor: pointer; 
+.modal-item button, .close-btn {
+  padding: 8px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
-
-.close-btn { 
-  background: #555; 
+.close-btn {
+  background: #555;
 }
 
 .image-viewer {
@@ -693,13 +590,11 @@ select, input[type="text"] {
   justify-content: center;
   align-items: center;
 }
-
 .image-viewer img {
   max-width: 90%;
   max-height: 90%;
   object-fit: contain;
 }
-
 #closeImageViewer {
   position: absolute;
   top: 20px; right: 20px;
@@ -708,13 +603,38 @@ select, input[type="text"] {
   cursor: pointer;
 }
 
-/* ========================================================
-   スマートフォン・モバイル向けレスポンシブ
-   ======================================================== */
+/* スマートフォン・モバイル対応 */
 @media (max-width: 768px) {
-  body, html { overflow: hidden; height: 100dvh; }
-  .app-layout { height: 100dvh; display: flex; flex-direction: column; }
-  .main-content { flex-direction: column; height: calc(100dvh - 80px); overflow: hidden; }
-  .layout-default #leftContainer, .layout-sidebar #leftContainer { width: 100%; flex: none; height: 35vh; max-height: 35vh; }
-  .layout-default #rightContainer, .layout-sidebar #rightContainer { width: 100%; flex: 1; border-left: none; border-top: 1px solid #2b2d31; height: auto; overflow: hidden; display: flex; flex-direction: column; }
+  body, html {
+    overflow: hidden;
+    height: 100dvh;
+  }
+  .app-layout {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  .main-content {
+    flex-direction: column;
+    height: calc(100dvh - 80px);
+    overflow: hidden;
+  }
+  .layout-default #leftContainer,
+  .layout-sidebar #leftContainer {
+    width: 100%;
+    flex: none;
+    height: 35vh;
+    max-height: 35vh;
+  }
+  .layout-default #rightContainer,
+  .layout-sidebar #rightContainer {
+    width: 100%;
+    flex: 1;
+    border-left: none;
+    border-top: 1px solid #2b2d31;
+    height: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
 }
