@@ -6,7 +6,8 @@
   <title>ブラウザ通話アプリ</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://apis.google.com/js/api.js"></script>
-<script src="https://accounts.google.com/gsi/client"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
 <body class="dark-theme">
   <div id="joinScreen">
@@ -111,7 +112,7 @@
           
           <div class="side-panel-body">
             <div id="tabContent-chat" class="tab-content active">
-              <div class="chat-container">
+              <div class="chat-container" id="chatArea">
                 <div id="chatMessages" class="chat-messages">
                   <div class="chat-system">チャットへようこそ！</div>
                 </div>
@@ -123,9 +124,43 @@
                 </div>
               </div>
             </div>
-            <div id="tabContent-tab2" class="tab-content">
-              <div class="tab-placeholder">👥 参加者リスト（開発中）</div>
+
+            <div id="tabContent-pdf" class="tab-content">
+              <div class="pdf-container-root">
+                <div class="top-controls">
+                  <button id="openDrivePickerBtn">📁 ドライブからPDF選択</button>
+                  <button id="switchAccountBtn">🔄 アカウント切替</button>
+                </div>
+                
+                <div class="pdf-controls-bar">
+                  <div class="pdf-page-nav">
+                    <button id="prevPageBtn">◀</button>
+                    <span id="pageInfo">0 / 0</span>
+                    <button id="nextPageBtn">▶</button>
+                  </div>
+                  <div class="pdf-toolbar">
+                    <button id="zoomOutBtn">－</button>
+                    <span id="zoomLabel">100%</span>
+                    <button id="zoomInBtn">＋</button>
+                  </div>
+                  <div class="draw-toolbar">
+                    <button id="penBtn" class="active">✏</button>
+                    <button id="eraserBtn">🧹</button>
+                    <button id="clearBtn">🗑</button>
+                  </div>
+                </div>
+
+                <div id="pdfFileNameLabel">共有中の資料はありません</div>
+                
+                <div id="pdfScrollContainer" class="pdf-scroll-container">
+                  <div id="pdfWrapper">
+                    <canvas id="pdfCanvas"></canvas>
+                    <canvas id="drawCanvas"></canvas>
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div id="tabContent-tab3" class="tab-content">
               <div class="tab-placeholder">🎨 エフェクト設定（開発中）</div>
             </div>
@@ -139,7 +174,7 @@
 
           <div class="side-tab-bar">
             <button class="tab-btn active" data-tab="chat">💬 <span>チャット</span></button>
-            <button class="tab-btn" data-tab="tab2">👥 <span>参加者</span></button>
+            <button class="tab-btn" data-tab="pdf">📄 <span>PDF共有</span></button>
             <button class="tab-btn" data-tab="tab3">🎨 <span>効果</span></button>
             <button class="tab-btn" data-tab="tab4">📊 <span>投票</span></button>
             <button class="tab-btn" data-tab="tab5">📝 <span>メモ</span></button>
