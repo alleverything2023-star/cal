@@ -81,13 +81,25 @@ export function sendChatMessageToFirebase(sender, text) {
 }
 
 /**
+ * 画像メッセージをFirebaseに送信する関数
+ */
+export function sendImageMessageToFirebase(sender, imageData) {
+  const newMessageRef = push(chatRef);
+  set(newMessageRef, {
+    sender: sender,
+    image: imageData,
+    timestamp: Date.now()
+  });
+}
+
+/**
  * リアルタイムにチャットメッセージを受信するリスナー
  */
 export function listenChatMessages(callback) {
   onChildAdded(chatRef, (snapshot) => {
     const msg = snapshot.val();
     if (msg) {
-      callback(msg.sender, msg.text);
+      callback(msg);
     }
   });
 }
