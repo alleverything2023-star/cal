@@ -178,25 +178,8 @@ body, html {
   height: 100%;
 }
 
-/* レイアウト1: 左が広く、右が狭い（デフォルト） */
-.layout-default #leftContainer {
-  flex: 7;
-  background-color: var(--bg-left);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15px;
-}
-
-.layout-default #rightContainer {
-  flex: 3;
-  background-color: var(--bg-card);
-  border-left: 1px solid #2b2d31;
-  display: flex;
-  flex-direction: column;
-}
-
-/* レイアウト2: 左が狭く、右が広い（PDFなどを広く見せる用） */
+/* 常にカメラが小さくまとまる安定した比率に設定 */
+.layout-default #leftContainer,
 .layout-sidebar #leftContainer {
   flex: 3;
   background-color: var(--bg-left);
@@ -206,6 +189,7 @@ body, html {
   padding: 15px;
 }
 
+.layout-default #rightContainer,
 .layout-sidebar #rightContainer {
   flex: 7;
   background-color: var(--bg-card);
@@ -229,7 +213,7 @@ body, html {
 
 /* 参加人数に合わせたグリッドの動的自動伸縮調整 */
 #videoGrid.count-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-#videoGrid.count-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+#videoGrid.count-2 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
 #videoGrid.count-3, #videoGrid.count-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 #videoGrid.count-5, #videoGrid.count-6 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
 #videoGrid.count-7, #videoGrid.count-8, #videoGrid.count-9 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
@@ -619,11 +603,10 @@ body, html {
   top: 0;
   left: 0;
   z-index: 10;
-  cursor: default; /* デフォルト(未選択)は通常の閲覧用矢印ポインタ */
+  cursor: default;
   touch-action: none;
 }
 
-/* ペンまたは消しゴムモードが有効な時だけカーソル形状を十字(crosshair)にする */
 #drawCanvas.drawing-mode-active {
   cursor: crosshair;
 }
@@ -642,7 +625,6 @@ body, html {
   position: relative;
 }
 
-/* 斜線によるOFF表現の制御（onクラスがない場合に線を出す） */
 .slash-line {
   stroke: var(--danger);
   stroke-width: 2;
@@ -720,7 +702,6 @@ body, html {
     overflow: hidden;
   }
 
-  /* 上部：ビデオ配置 */
   .layout-default #leftContainer,
   .layout-sidebar #leftContainer {
     width: 100%;
@@ -729,7 +710,6 @@ body, html {
     max-height: 35vh;
   }
 
-  /* 下部：ツール・PDF・チャット */
   .layout-default #rightContainer,
   .layout-sidebar #rightContainer {
     width: 100%;
