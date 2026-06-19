@@ -8,6 +8,12 @@
   <script src="https://apis.google.com/js/api.js"></script>
   <script src="https://accounts.google.com/gsi/client"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script>
+    // pdfjsLibのワーカーパスを明示的に設定して描画エラーを防止
+    if (typeof window !== 'undefined' && window['pdfjs-dist/build/pdf']) {
+      window.pdfjsLib = window['pdfjs-dist/build/pdf'];
+    }
+  </script>
 </head>
 <body class="dark-theme">
   <div id="joinScreen">
@@ -143,9 +149,15 @@
                     <span id="zoomLabel">100%</span>
                     <button id="zoomInBtn">＋</button>
                   </div>
+                  
                   <div class="draw-toolbar">
-                    <button id="penBtn" class="active">✏</button>
+                    <button id="penBtn">✏</button>
                     <button id="eraserBtn">🧹</button>
+                    <input type="color" id="brushColor" value="#ff0000" title="色の変更">
+                    <div class="brush-size-container">
+                      <input type="range" id="brushSize" min="1" max="30" value="3" title="太さの変更">
+                      <span id="sizeLabel">3</span>
+                    </div>
                     <button id="clearBtn">🗑</button>
                   </div>
                 </div>
