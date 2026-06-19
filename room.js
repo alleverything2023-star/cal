@@ -8,36 +8,29 @@ const roomId = "default_room";
 const participantsRef = ref(db, `rooms/${roomId}/participants`);
 const signalingRef = ref(db, `rooms/${roomId}/signaling/${myId}`);
 const chatRef = ref(db, `rooms/${roomId}/messages`); 
-const pdfRef = ref(db, `rooms/${roomId}/pdfData`); // PDFデータ共有用のノード
+const pdfRef = ref(db, `rooms/${roomId}/pdfData`); 
 
 let signalingListener = null;
 
 export async function joinRoom(name) {
   roomParticipants[myId] = { name: name };
   
-  // 入室前に、自分宛ての古いシグナリングの箱が万が一残っていたら完全に消去する
   await remove(signalingRef);
 
-  // Firebaseに自分の参加情報を書き込む
   const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
   await set(myParticipantRef, { name: name });
   console.log(`${name} としてFirebaseの部屋に参加しました。ID: ${myId}`);
 
-  // 【接続切れ対策】自分が通信切れになったら参加者リストから自分を消す
   onDisconnect(myParticipantRef).remove();
 
-  // 【iPad/Safari対策】タブを閉じる・リロードする瞬間に即座に自分を削除
   const leaveRoomData = () => {
     const pRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/participants/${myId}.json`;
     fetch(pRefUrl, { method: "DELETE", keepalive: true });
 
-    // もし自分が最後の1人だった場合、チャット履歴とPDFデータも強制削除
     if (Object.keys(roomParticipants).length <= 1) {
-      const chatRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/messages.json`;
-      fetch(chatRefUrl, { method: "DELETE", keepalive: true });
-      
-      const pdfRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`;
-      fetch(pdfRefUrl, { method: "DELETE", keepalive: true });
+      fetch(`https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/messages.json`, { method: "DELETE", keepalive: true });
+      fetch(`https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`, { method: "DELETE", keepalive: true });
+      fetch(`https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/drawings/${roomId}.json`, { method: "DELETE", keepalive: true });
     }
   };
 
@@ -52,9 +45,9 @@ export function listenParticipants(callback) {
       roomParticipants = data;
     } else {
       roomParticipants = {};
-      // 参加者が完全に0人になったら、チャットとPDFをクリーンアップ
       await remove(chatRef);
       await remove(pdfRef);
+      await remove(ref(db, `drawings/${roomId}`));
       console.log("部屋が空になったため、データを消去しました。");
     }
     callback(roomParticipants);
@@ -68,9 +61,6 @@ export async function updateMyName(newName) {
   }
 }
 
-/**
- * チャットメッセージをFirebaseに送信する関数
- */
 export function sendChatMessageToFirebase(sender, text) {
   const newMessageRef = push(chatRef);
   set(newMessageRef, {
@@ -80,9 +70,6 @@ export function sendChatMessageToFirebase(sender, text) {
   });
 }
 
-/**
- * 画像メッセージをFirebaseに送信する関数
- */
 export function sendImageMessageToFirebase(sender, imageData) {
   const newMessageRef = push(chatRef);
   set(newMessageRef, {
@@ -92,9 +79,6 @@ export function sendImageMessageToFirebase(sender, imageData) {
   });
 }
 
-/**
- * リアルタイムにチャットメッセージを受信するリスナー
- */
 export function listenChatMessages(callback) {
   onChildAdded(chatRef, (snapshot) => {
     const msg = snapshot.val();
@@ -104,33 +88,60 @@ export function listenChatMessages(callback) {
   });
 }
 
-/**
- * 【新規】PDFデータをFirebase経由で全員に送信する
- */
-export async function sendPdfToFirebase(base64Data, fileName) {
+export async function sendPdfToFirebase(sharedUrl, fileName) {
   await set(pdfRef, {
-    pdf: base64Data,
+    pdf: sharedUrl,
     name: fileName,
     senderId: myId,
+    page: 1, // 初期ページ初期化追加
     timestamp: Date.now()
   });
 }
 
-/**
- * 【新規】誰かがPDFをアップロードしたのを検知するリスナー
- */
+export function updatePdfPageInFirebase(page) {
+  set(ref(db, `rooms/${roomId}/pdfData/page`), page);
+}
+
 export function listenPdfData(callback) {
   onValue(pdfRef, (snapshot) => {
     const data = snapshot.val();
     if (data && data.pdf) {
-      callback(data.pdf, data.name, data.senderId);
+      callback(data);
     }
   });
 }
 
 /**
- * webrtc.js から呼び出されるシグナリング送信関数
+ * ⑥ 手書きのストロークをFirebaseに送信・保存する
  */
+export function saveStrokeToFirebase(page, stroke) {
+  push(ref(db, `drawings/${roomId}/${page}`), stroke);
+}
+
+/**
+ * ⑦ 特定ページのFirebase手書きストロークをクリアする
+ */
+export function clearStrokesInFirebase(page) {
+  remove(ref(db, `drawings/${roomId}/${page}`));
+}
+
+/**
+ * ⑦ Firebaseの手書きイベントをリアルタイムにリッスンする
+ */
+export function listenStrokes(page, onAdded, onCleared) {
+  const pageDrawRef = ref(db, `drawings/${roomId}/${page}`);
+  
+  onChildAdded(pageDrawRef, (snapshot) => {
+    onAdded(snapshot.val());
+  });
+
+  onValue(pageDrawRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onCleared();
+    }
+  });
+}
+
 export function sendSignalingMessage(targetPeerId, payload) {
   const targetSignalingRef = ref(db, `rooms/${roomId}/signaling/${targetPeerId}`);
   const newMessageRef = push(targetSignalingRef);
@@ -140,9 +151,6 @@ export function sendSignalingMessage(targetPeerId, payload) {
   });
 }
 
-/**
- * サーバー（Firebase）から自分宛てのシグナリングデータが届いたときに呼び出すリスナー
- */
 export function listenSignalingMessage(callback) {
   signalingListener = callback;
   onChildAdded(signalingRef, (snapshot) => {
