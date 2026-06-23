@@ -158,7 +158,7 @@ function setupRoomListeners() {
 }
 
 /* ========================================================
-   コントロールボタン制御 (マイク、カメラ、比率、設定) 完全復旧
+   コントロールボタン制御 (マイク、カメラ、比率、設定)
    ======================================================== */
 function updateButtonStatusUI(btnElement, indicatorId, isOn) {
   if (!btnElement) return;
@@ -196,7 +196,7 @@ if (mainCamBtn) {
   };
 }
 
-// 比率変更（レイアウト切り替え 16:9 ↔ サイドバー型）の復旧
+// 比率変更（レイアウト切り替え 16:9 ↔ サイドバー型）
 if (layoutToggleBtn) {
   layoutToggleBtn.onclick = () => {
     const mainContent = document.querySelector(".main-content");
@@ -212,7 +212,7 @@ if (layoutToggleBtn) {
   };
 }
 
-// 設定モーダルとテーマカラー変更機能の復旧
+// 設定モーダルとテーマカラー変更機能
 if (settingsBtn) {
   settingsBtn.onclick = () => {
     if (modalNameInput) modalNameInput.value = currentUserName;
@@ -346,7 +346,7 @@ function appendMessage(sender, text, isMe = false) {
 
   const bbl = document.createElement("div");
   bbl.textContent = text;
-  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%\"; bbl.style.wordBreak = \"break-all\"; bbl.style.fontSize = \"14px\";
+  bbl.style.padding = "10px 14px"; bbl.style.borderRadius = "14px"; bbl.style.maxWidth = "75%"; bbl.style.wordBreak = "break-all"; bbl.style.fontSize = "14px";
   if (isMe) {
     bbl.style.backgroundColor = "#5865f2"; bbl.style.color = "white";
   } else {
@@ -420,7 +420,7 @@ if (pdfFileInput) {
 }
 
 /* ========================================================
-   Google Drive Picker 連携処理の完全復旧
+   Google Drive Picker 連携処理
    ======================================================== */
 function loadGapiAndGsi() {
   const scriptGapi = document.createElement("script");
