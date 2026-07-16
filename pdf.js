@@ -30,6 +30,18 @@ let currentStroke = [];
 // 初期状態はどちらも選択されていない状態 (none = 閲覧モード)
 let mode = "none"; 
 
+// ① 重複リスナーをクリーンアップするための解除関数保持変数
+let unsubscribeStrokeListener = null;
+
+// ⑯ 多重描画防止用フラグ
+let isRendering = false;
+
+// ⑰ 進行中のレンダリングタスクキャンセル用
+let currentRenderTask = null;
+
+// ⑭ ページごとのローカルストロークキャッシュ
+const strokesByPage = {};
+
 // 【新規追加】スクロール・ズーム（ピンチイン・アウト）を禁止するイベントリスナー
 function preventScrollAndZoom(e) {
   if (mode === "pen" || mode === "eraser") {
@@ -62,6 +74,27 @@ if (pdfScrollContainer) {
   pdfScrollContainer.addEventListener("pointermove", (e) => {
     if ((mode === "pen" || mode === "eraser") && e.pointerType === "touch") {
       // タッチイベントによる誤動作防止
+    }
+  }, { passive: false });
+}
+
+// ⑬ Ctrl + マウスホイールによるズーム操作（ペン/消しゴムモード以外で動作）
+if (pdfScrollContainer) {
+  pdfScrollContainer.addEventListener("wheel", async (e) => {
+    if (e.ctrlKey && mode === "none") {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        // ズームイン
+        if (pdfScale >= 3.0) return;
+        pdfScale = Math.min(3.0, pdfScale + 0.1);
+      } else {
+        // ズームアウト
+        if (pdfScale <= 0.5) return;
+        pdfScale = Math.max(0.5, pdfScale - 0.1);
+      }
+      if (zoomLabel) zoomLabel.textContent = `${Math.round(pdfScale * 100)}%`;
+      await renderCurrentPage();
+      redrawAllStrokesLocal();
     }
   }, { passive: false });
 }
@@ -102,6 +135,23 @@ if (brushSizeInput && sizeLabel) {
 let localStrokesArray = [];
 
 export async function loadAndRenderPdf(pdfUrlOrBase64, token = null) {
+  // ⑫ 同じPDFなら再ロードしない
+  if (currentPdfUrl === pdfUrlOrBase64 && pdfDoc) {
+    return;
+  }
+
+  // ⑪ 前のPDFドキュメントインスタンスが存在すれば破棄してメモリリークを防ぐ
+  if (pdfDoc) {
+    try {
+      if (typeof pdfDoc.destroy === "function") {
+        await pdfDoc.destroy();
+      }
+    } catch (e) {
+      console.warn("前PDFインスタンス解放エラー:", e);
+    }
+    pdfDoc = null;
+  }
+
   currentPdfUrl = pdfUrlOrBase64;
   currentToken = token;
   
@@ -125,12 +175,31 @@ export async function loadAndRenderPdf(pdfUrlOrBase64, token = null) {
     currentPage = 1;
     await renderCurrentPage();
   } catch (err) {
-    console.error("PDF読み込み失敗:", err);
+    console.error("PDF読み込み失敗:", err, {
+      pdfUrl: pdfUrlOrBase64
+    });
   }
 }
 
 export async function renderCurrentPage() {
   if (!pdfDoc || !pdfCanvas || !drawCanvas) return;
+
+  // ⑯ 描画重複防止フラグ
+  isRendering = true;
+
+  // ⑰ 前回の未完了レンダリング処理を中断
+  if (currentRenderTask) {
+    try {
+      currentRenderTask.cancel();
+    } catch (e) {
+      // キャンセルによる正常終了
+    }
+    currentRenderTask = null;
+  }
+
+  // ② 新ページロード時に古い描画がブレて表示されるのを防ぐクリーンアップ
+  clearDrawCanvasLocal();
+  localStrokesArray = [];
 
   try {
     const page = await pdfDoc.getPage(currentPage);
@@ -145,7 +214,10 @@ export async function renderCurrentPage() {
       canvasContext: pdfCanvas.getContext("2d"),
       viewport: viewport
     };
-    await page.render(renderContext).promise;
+
+    currentRenderTask = page.render(renderContext);
+    await currentRenderTask.promise;
+    currentRenderTask = null;
 
     if (pageInfo) {
       pageInfo.textContent = `${currentPage} / ${pdfDoc.numPages}`;
@@ -153,14 +225,23 @@ export async function renderCurrentPage() {
 
     setupFirebaseStrokeListener();
   } catch (err) {
-    console.error("ページ描画失敗:", err);
+    // キャンセルによるエラーはコンソールに出力しない
+    if (err && err.name !== "RenderingCancelledException") {
+      console.error("ページ描画失敗:", err, {
+        page: currentPage,
+        scale: pdfScale,
+        pdfUrl: currentPdfUrl
+      });
+    }
+  } finally {
+    isRendering = false;
   }
 }
 
 // 拡大ボタン（ペン・消しゴム使用時は動作しないように制限）
 if (zoomInBtn) {
   zoomInBtn.onclick = async () => {
-    if (mode === "pen" || mode === "eraser") return; // 使用中は無効化
+    if (mode === "pen" || mode === "eraser" || isRendering) return; // 使用中やレンダリング中は無効化
     if (pdfScale >= 3.0) return;
     pdfScale += 0.2;
     if (zoomLabel) zoomLabel.textContent = `${Math.round(pdfScale * 100)}%`;
@@ -172,7 +253,7 @@ if (zoomInBtn) {
 // 縮小ボタン（ペン・消しゴム使用時は動作しないように制限）
 if (zoomOutBtn) {
   zoomOutBtn.onclick = async () => {
-    if (mode === "pen" || mode === "eraser") return; // 使用中は無効化
+    if (mode === "pen" || mode === "eraser" || isRendering) return; // 使用中やレンダリング中は無効化
     if (pdfScale <= 0.5) return;
     pdfScale -= 0.2;
     if (zoomLabel) zoomLabel.textContent = `${Math.round(pdfScale * 100)}%`;
@@ -182,7 +263,7 @@ if (zoomOutBtn) {
 }
 
 export async function changePage(offset) {
-  if (!pdfDoc) return;
+  if (!pdfDoc || isRendering) return;
   const newPage = currentPage + offset;
   if (newPage < 1 || newPage > pdfDoc.numPages) return;
   currentPage = newPage;
@@ -192,7 +273,7 @@ export async function changePage(offset) {
 
 // 他のユーザーがページを切り替えた時の同期用
 export async function setRemotePage(pageNumber) {
-  if (!pdfDoc || currentPage === pageNumber) return;
+  if (!pdfDoc || currentPage === pageNumber || isRendering) return;
   currentPage = pageNumber;
   await renderCurrentPage();
 }
@@ -204,12 +285,25 @@ if (document.getElementById("nextPageBtn")) {
   document.getElementById("nextPageBtn").onclick = () => changePage(1);
 }
 
+// ④ ウィンドウサイズが変更された場合にも手書きキャンバスをリサイズして再描画
+window.addEventListener("resize", () => {
+  if (pdfDoc) {
+    redrawAllStrokesLocal();
+  }
+});
+
 /* ========================================================
    手書き描画ロジック (Canvas操作)
    ======================================================== */
 if (drawCanvas) {
   drawCanvas.onpointerdown = (e) => {
     if (mode === "none") return; // 閲覧モード時は描画しない
+    
+    // ⑤ pointer capture を有効にしてiPadやタッチ時の安定描画を実現
+    try {
+      drawCanvas.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
     drawing = true;
     currentStroke = [];
     const pt = getCanvasPoint(e);
@@ -220,18 +314,46 @@ if (drawCanvas) {
     if (!drawing || mode === "none") return;
     const pt = getCanvasPoint(e);
     currentStroke.push(pt);
-    drawCurrentStrokeLocal();
+    
+    // ⑦ requestAnimationFrame を介して再描画負荷を低減（カクつきを抑制）
+    requestAnimationFrame(drawCurrentStrokeLocal);
   };
 
-  drawCanvas.onpointerup = () => {
+  drawCanvas.onpointerup = (e) => {
     if (!drawing) return;
     drawing = false;
+    
+    try {
+      drawCanvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
     saveStroke(currentStroke);
     currentStroke = [];
   };
 
-  drawCanvas.onpointercancel = () => {
+  // ⑩ pointercancel時でも描いたデータを破棄せず保存
+  drawCanvas.onpointercancel = (e) => {
+    if (!drawing) return;
     drawing = false;
+
+    try {
+      drawCanvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
+    saveStroke(currentStroke);
+    currentStroke = [];
+  };
+
+  // ⑥ pointerleave（領域外へのフェードアウト時）でもストロークをセーブ
+  drawCanvas.onpointerleave = (e) => {
+    if (!drawing) return;
+    drawing = false;
+
+    try {
+      drawCanvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
+    saveStroke(currentStroke);
     currentStroke = [];
   };
 }
@@ -266,10 +388,29 @@ function drawCurrentStrokeLocal() {
   drawCtx.strokeStyle = mode === "eraser" ? "#000000" : brushColorInput.value;
   drawCtx.globalCompositeOperation = mode === "eraser" ? "destination-out" : "source-over";
   
-  drawCtx.moveTo(currentStroke[0].x * pdfScale, currentStroke[0].y * pdfScale);
-  for (let i = 1; i < currentStroke.length; i++) {
-    drawCtx.lineTo(currentStroke[i].x * pdfScale, currentStroke[i].y * pdfScale);
+  // ⑧ 3点以上あればquadraticCurveTo（2次ベジェ曲線）により手書き線を滑らかに補間
+  const p = currentStroke;
+  if (p.length < 3) {
+    drawCtx.moveTo(p[0].x * pdfScale, p[0].y * pdfScale);
+    for (let i = 1; i < p.length; i++) {
+      drawCtx.lineTo(p[i].x * pdfScale, p[i].y * pdfScale);
+    }
+  } else {
+    drawCtx.moveTo(p[0].x * pdfScale, p[0].y * pdfScale);
+    for (var i = 1; i < p.length - 2; i++) {
+      const xc = ((p[i].x + p[i + 1].x) / 2) * pdfScale;
+      const yc = ((p[i].y + p[i + 1].y) / 2) * pdfScale;
+      drawCtx.quadraticCurveTo(p[i].x * pdfScale, p[i].y * pdfScale, xc, yc);
+    }
+    // 終端手前の2点間の補間
+    drawCtx.quadraticCurveTo(
+      p[i].x * pdfScale,
+      p[i].y * pdfScale,
+      p[i + 1].x * pdfScale,
+      p[i + 1].y * pdfScale
+    );
   }
+  
   drawCtx.stroke();
 }
 
@@ -286,14 +427,30 @@ function saveStroke(strokePoints) {
 }
 
 function setupFirebaseStrokeListener() {
+  // ① 既に存在するFirebaseリスナーがあれば確実に解除して増殖を防ぐ
+  if (unsubscribeStrokeListener) {
+    unsubscribeStrokeListener();
+    unsubscribeStrokeListener = null;
+  }
+
   localStrokesArray = [];
-  listenStrokes(currentPage, 
+  
+  // ⑭ ページごとにストローク履歴をロード・初期化
+  if (!strokesByPage[currentPage]) {
+    strokesByPage[currentPage] = [];
+  }
+  localStrokesArray = strokesByPage[currentPage];
+  redrawAllStrokesLocal();
+
+  unsubscribeStrokeListener = listenStrokes(currentPage, 
     (stroke) => {
       localStrokesArray.push(stroke);
       drawStroke(stroke);
     },
     () => {
+      // ⑮ Firebase側でクリアされたらローカルも即削除
       localStrokesArray = [];
+      strokesByPage[currentPage] = [];
       clearDrawCanvasLocal();
     }
   );
@@ -307,16 +464,38 @@ function drawStroke(stroke) {
   drawCtx.strokeStyle = stroke.color;
   drawCtx.globalCompositeOperation = stroke.mode === "eraser" ? "destination-out" : "source-over";
   
+  // ⑧ 3点以上あればquadraticCurveTo（2次ベジェ曲線）により滑らかに再描画
   const p = stroke.points;
-  drawCtx.moveTo(p[0].x * pdfScale, p[0].y * pdfScale);
-  for (let i = 1; i < p.length; i++) {
-    drawCtx.lineTo(p[i].x * pdfScale, p[i].y * pdfScale);
+  if (p.length < 3) {
+    drawCtx.moveTo(p[0].x * pdfScale, p[0].y * pdfScale);
+    for (let i = 1; i < p.length; i++) {
+      drawCtx.lineTo(p[i].x * pdfScale, p[i].y * pdfScale);
+    }
+  } else {
+    drawCtx.moveTo(p[0].x * pdfScale, p[0].y * pdfScale);
+    var i;
+    for (i = 1; i < p.length - 2; i++) {
+      const xc = ((p[i].x + p[i + 1].x) / 2) * pdfScale;
+      const yc = ((p[i].y + p[i + 1].y) / 2) * pdfScale;
+      drawCtx.quadraticCurveTo(p[i].x * pdfScale, p[i].y * pdfScale, xc, yc);
+    }
+    drawCtx.quadraticCurveTo(
+      p[i].x * pdfScale,
+      p[i].y * pdfScale,
+      p[i + 1].x * pdfScale,
+      p[i + 1].y * pdfScale
+    );
   }
+  
   drawCtx.stroke();
 }
 
 if (clearBtn) {
   clearBtn.onclick = () => {
+    // ⑮ Firebaseの削除に合わせて、ローカル配列もその場で即座に初期化してクリア処理の同期ラグを低減
+    localStrokesArray = [];
+    strokesByPage[currentPage] = [];
+    clearDrawCanvasLocal();
     clearStrokesInFirebase(currentPage);
   };
 }
