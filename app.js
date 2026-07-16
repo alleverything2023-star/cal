@@ -95,7 +95,73 @@ if (initMicToggle) initMicToggle.addEventListener("change", updatePreview);
 
 // 参加処理
 if (joinButton) {
-  joinButton.addEventListener("click", async () => {
+joinButton.addEventListener("click", async () => {
+
+  joinButton.disabled = true;
+
+  try {
+
+    // Safari対策
+    const permissionStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+
+    permissionStream.getTracks().forEach(track => track.stop());
+
+    await updateDeviceList();
+
+    const name = nameInput.value.trim() || "名無しさん";
+    currentUserName = name;
+
+    localStream = await getLocalStream(
+      cameraSelect.value || null,
+      micSelect.value || null
+    );
+
+    if (myLocalVideo) {
+      myLocalVideo.srcObject = localStream;
+    }
+
+    if (myPreviewVideo) {
+      myPreviewVideo.srcObject = localStream;
+    }
+
+    const camOn = initCameraToggle.checked;
+    const micOn = initMicToggle.checked;
+
+    localStream.getVideoTracks().forEach(t => t.enabled = camOn);
+    localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+
+    updateButtonStatusUI(mainCamBtn, "myCamStatus", camOn);
+    updateButtonStatusUI(mainMicBtn, "myMicStatus", micOn);
+
+    await joinRoom(name);
+
+    isJoined = true;
+
+    joinScreen.style.display = "none";
+    roomScreen.style.display = "block";
+
+    document.getElementById("myVideoName").textContent = name;
+
+    setupRoomListeners();
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert(
+      "カメラ・マイクを利用できません。\n\nSafariのサイト設定でカメラ・マイクを許可してください。"
+    );
+
+  } finally {
+
+    joinButton.disabled = false;
+
+  }
+
+});
     const name = nameInput.value.trim() || "名無しさん";
     currentUserName = name;
     
