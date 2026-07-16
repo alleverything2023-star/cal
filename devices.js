@@ -1,10 +1,12 @@
 export async function getLocalStream(cameraId = null, micId = null) {
+  // すでにある要素を一切削減せず、空文字や無効な値による OverconstrainedError を防ぐために
+  // 条件分岐をより厳密かつ柔軟（exact から ideal）に修正しています。
   const constraints = {
-    video: cameraId
-      ? { deviceId: { exact: cameraId } }
+    video: cameraId && cameraId !== ""
+      ? { deviceId: { ideal: cameraId } }
       : { facingMode: "user" },
-    audio: micId
-      ? { deviceId: { exact: micId } }
+    audio: micId && micId !== ""
+      ? { deviceId: { ideal: micId } }
       : true
   };
 
