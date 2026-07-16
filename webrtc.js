@@ -4,6 +4,9 @@ export const peerConnections = {};
 let localStreamRef = null;
 let onRemoteStreamRef = null;
 
+// ピアごとの Perfect Negotiation 状態管理用オブジェクト
+const connectionStates = {};
+
 // アプリ起動時にシグナリングの受信待機を自動開始
 listenSignalingMessage((fromPeerId, signalingData) => {
   handleSignalingMessage(fromPeerId, signalingData);
@@ -19,8 +22,24 @@ export function startP2P(peerId, localStream, onRemoteStream) {
   if (localStream) localStreamRef = localStream;
   if (onRemoteStream) onRemoteStreamRef = onRemoteStream;
 
+  // Perfect Negotiation に必要な各ピアの状態の初期化
+  const polite = myId > peerId; // IDが大きい方がpolite（譲る側）
+  connectionStates[peerId] = {
+    polite: polite,
+    makingOffer: false,
+    ignoreOffer: false,
+    isSettingRemoteAnswerPending: false,
+    pendingCandidates: []
+  };
+
   const pc = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+      { urls: "stun:stun3.l.google.com:19302" },
+      { urls: "stun:stun4.l.google.com:19302" }
+    ]
   });
   peerConnections[peerId] = pc;
 
@@ -28,6 +47,25 @@ export function startP2P(peerId, localStream, onRemoteStream) {
   if (currentStream) {
     currentStream.getTracks().forEach(track => pc.addTrack(track, currentStream));
   }
+
+  // ① onnegotiationneeded による自動Offer制御（Perfect Negotiation）
+  pc.onnegotiationneeded = async () => {
+    const state = connectionStates[peerId];
+    if (!state) return;
+    try {
+      if (pc.signalingState !== "stable") {
+        return; // ⑭ stable以外ならOffer生成を行わない
+      }
+      state.makingOffer = true;
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sendSignalingMessage(peerId, { type: "offer", sdp: pc.localDescription.sdp });
+    } catch (err) {
+      logError("Offer作成・設定送信失敗", peerId, pc, err);
+    } finally {
+      state.makingOffer = false;
+    }
+  };
 
   pc.ontrack = (e) => {
     if (onRemoteStreamRef) onRemoteStreamRef(peerId, e.streams[0]);
@@ -39,47 +77,154 @@ export function startP2P(peerId, localStream, onRemoteStream) {
     }
   };
 
-  // 自分の方がIDが小さい場合、Offerを作成して送信
-  if (myId < peerId) {
-    pc.createOffer()
-      .then(offer => pc.setLocalDescription(offer))
-      .then(() => {
-        sendSignalingMessage(peerId, { type: "offer", sdp: pc.localDescription.sdp });
-      })
-      .catch(err => console.error("Offer作成失敗:", err));
-  }
+  // ⑤ 接続状態監視
+  pc.onconnectionstatechange = () => {
+    const cs = pc.connectionState;
+    console.log(`[P2P: ${peerId}] Connection State: ${cs}`);
+    if (cs === "failed") {
+      console.warn(`[P2P: ${peerId}] Connection failed. Restarting ICE...`);
+      try {
+        pc.restartIce();
+      } catch (err) {
+        logError("restartIce失敗(connectionState)", peerId, pc, err);
+      }
+    }
+  };
+
+  // ⑥ ICE接続状態監視
+  pc.oniceconnectionstatechange = () => {
+    const ics = pc.iceConnectionState;
+    console.log(`[P2P: ${peerId}] ICE Connection State: ${ics}`);
+    if (ics === "failed") {
+      console.warn(`[P2P: ${peerId}] ICE failed. Restarting ICE...`);
+      try {
+        pc.restartIce();
+      } catch (err) {
+        logError("restartIce失敗(iceConnectionState)", peerId, pc, err);
+      }
+    }
+  };
+
+  // ⑦ ICE収集状態監視
+  pc.onicegatheringstatechange = () => {
+    console.log(`[P2P: ${peerId}] ICE Gathering State: ${pc.iceGatheringState}`);
+  };
 }
 
 // シグナリングデータの処理
 async function handleSignalingMessage(fromPeerId, data) {
   let pc = peerConnections[fromPeerId];
+  let state = connectionStates[fromPeerId];
   
   if (!pc && data.type === "offer") {
     startP2P(fromPeerId, localStreamRef, onRemoteStreamRef);
     pc = peerConnections[fromPeerId];
+    state = connectionStates[fromPeerId];
   }
 
-  if (!pc) return;
+  if (!pc || !state) return;
 
   try {
     if (data.type === "offer") {
+      // Glare（衝突）検知
+      const offerCollision = (data.type === "offer") && 
+                             (state.makingOffer || pc.signalingState !== "stable");
+
+      state.ignoreOffer = !state.polite && offerCollision;
+      if (state.ignoreOffer) {
+        console.warn(`[P2P: ${fromPeerId}] Impolite peer: Ignoring incoming offer to resolve collision.`);
+        return;
+      }
+
+      state.isSettingRemoteAnswerPending = false;
       await pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: data.sdp }));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       sendSignalingMessage(fromPeerId, { type: "answer", sdp: pc.localDescription.sdp });
+
+      // RemoteDescription 適用後に保留中だった ICE Candidate を一括処理
+      const candidates = state.pendingCandidates;
+      state.pendingCandidates = [];
+      for (const candidate of candidates) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          logError("保留中Candidate適用エラー", fromPeerId, pc, err);
+        }
+      }
+
     } else if (data.type === "answer") {
+      // signalingStateの整合性チェック
+      if (pc.signalingState !== "have-local-offer") {
+        console.warn(`[P2P: ${fromPeerId}] Answer received but state is ${pc.signalingState}. Ignoring.`);
+        return;
+      }
+      state.isSettingRemoteAnswerPending = true;
       await pc.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: data.sdp }));
+      state.isSettingRemoteAnswerPending = false;
+
+      // RemoteDescription 適用後に保留中だった ICE Candidate を一括処理
+      const candidates = state.pendingCandidates;
+      state.pendingCandidates = [];
+      for (const candidate of candidates) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          logError("保留中Candidate適用エラー", fromPeerId, pc, err);
+        }
+      }
+
     } else if (data.type === "candidate") {
-      await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      if (!data.candidate) return; // ⑮ candidateがnullなら無視
+
+      const readyForCandidate = pc.remoteDescription && pc.remoteDescription.type;
+      if (!readyForCandidate) {
+        // ③ リモート記述が未設定の間はキューへ保存
+        state.pendingCandidates.push(data.candidate);
+      } else {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } catch (err) {
+          if (!state.ignoreOffer) {
+            logError("Candidate直接適用エラー", fromPeerId, pc, err);
+          }
+        }
+      }
     }
   } catch (err) {
-    console.error("シグナリング処理エラー:", err);
+    logError("シグナリング処理エラー", fromPeerId, pc, err);
   }
 }
 
 export function closeP2P(peerId) {
   if (peerConnections[peerId]) {
-    try { peerConnections[peerId].close(); } catch(e){}
+    const pc = peerConnections[peerId];
+    try {
+      // ⑩ イベントハンドラの初期化
+      pc.ontrack = null;
+      pc.onicecandidate = null;
+      pc.onconnectionstatechange = null;
+      pc.oniceconnectionstatechange = null;
+      pc.onnegotiationneeded = null;
+      pc.onicegatheringstatechange = null;
+      
+      pc.close();
+    } catch(e){}
+    
     delete peerConnections[peerId];
   }
+  if (connectionStates[peerId]) {
+    delete connectionStates[peerId];
+  }
+}
+
+// ⑫ 詳細ログ出力用ユーティリティ
+function logError(label, peerId, pc, err) {
+  console.error(`[Error: ${label}]`, {
+    peerId: peerId,
+    message: err?.message || err,
+    signalingState: pc ? pc.signalingState : "unknown",
+    connectionState: pc ? pc.connectionState : "unknown",
+    iceConnectionState: pc ? pc.iceConnectionState : "unknown"
+  });
 }
