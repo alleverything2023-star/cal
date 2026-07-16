@@ -2,24 +2,45 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#2b2d31"> <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="通話アプリ">
+  
   <title>ブラウザ通話アプリ</title>
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22 width=%22100%22 height=%22100%22><text y=%220.9em%22 font-size=%2290%22>📞</text></svg>">
   <link rel="stylesheet" href="style.css">
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script>
     if (typeof window !== 'undefined' && window['pdfjs-dist/build/pdf']) {
       window.pdfjsLib = window['pdfjs-dist/build/pdf'];
+      // Workerのパスを設定し、描画処理をバックグラウンドスレッドで高速化
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
     }
   </script>
-  <script src="https://apis.google.com/js/api.js"></script>
-  <script src="https://accounts.google.com/gsi/client"></script>
+  
+  <script src="https://apis.google.com/js/api.js" defer></script>
+  <script src="https://accounts.google.com/gsi/client" defer></script>
 </head>
 <body class="dark-theme">
+
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <p id="loadingText">接続中...</p>
+  </div>
+
   <div id="joinScreen">
     <div class="setup-container">
       <h2>通話に参加</h2>
+      
+      <div id="deviceErrorContainer" class="device-error-container" style="display: none;">
+        <p id="deviceErrorText"></p>
+      </div>
+
       <div class="preview-box">
-        <video id="myPreviewVideo" autoplay playsinline muted></video>
+        <video id="myPreviewVideo" autoplay playsinline muted disablePictureInPicture preload="metadata" controlslist="nodownload noplaybackrate"></video>
       </div>
       <div class="toggle-controls">
         <label><input type="checkbox" id="initCameraToggle" checked> カメラをONにする</label>
@@ -28,28 +49,42 @@
       <div class="device-selects">
         <div class="select-field">
           <label for="cameraSelect">カメラ:</label>
-          <select id="cameraSelect"></select>
+          <select id="cameraSelect" autocomplete="off"></select>
         </div>
         <div class="select-field">
           <label for="micSelect">マイク:</label>
-          <select id="micSelect"></select>
+          <select id="micSelect" autocomplete="off"></select>
         </div>
       </div>
       <div class="join-form">
-        <input type="text" id="nameInput" placeholder="表示名を入力してください" maxlength="15">
-        <button id="joinButton">参加する</button>
+        <input type="text" id="nameInput" placeholder="表示名を入力してください" maxlength="15" autocomplete="nickname" enterkeyhint="done">
+        <button id="joinButton" type="button">参加する</button>
       </div>
     </div>
   </div>
 
   <div id="roomScreen" style="display: none;">
+    <div class="room-status-bar">
+      <div class="status-left">
+        <span id="participantCount">現在: 1 人</span>
+        <span id="networkIndicator" class="network-indicator" title="接続状態">
+          <span class="status-dot green"></span> 接続状態: 良好
+        </span>
+      </div>
+      <div id="developerStats" class="dev-stats" style="display: none;">
+        <span>FPS: <span id="statFps">0</span></span> | 
+        <span>Ping: <span id="statPing">0</span>ms</span> | 
+        <span>Bitrate: <span id="statBitrate">0</span> kbps</span>
+      </div>
+    </div>
+
     <div class="app-layout">
       <div class="main-content layout-default">
         <div id="leftContainer">
           <div id="videoGrid" class="count-1">
             <div class="videoCard" id="myVideoCard">
               <div class="video-wrapper">
-                <video id="myLocalVideo" autoplay playsinline muted></video>
+                <video id="myLocalVideo" autoplay playsinline muted disablePictureInPicture preload="metadata" controlslist="nodownload noplaybackrate"></video>
               </div>
               <div class="videoControlBar">
                 <span class="videoName" id="myVideoName">あなた</span>
@@ -78,7 +113,7 @@
 
         <div id="rightContainer">
           <div class="side-panel-header">
-            <button class="action-control-btn on" id="mainMicBtn">
+            <button class="action-control-btn on" id="mainMicBtn" type="button">
               <svg class="icon-svg" viewBox="0 0 24 24">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -87,20 +122,20 @@
                 <line class="slash-line" x1="1" y1="1" x2="23" y2="23"></line>
               </svg>
             </button>
-            <button class="action-control-btn on" id="mainCamBtn">
+            <button class="action-control-btn on" id="mainCamBtn" type="button">
               <svg class="icon-svg" viewBox="0 0 24 24">
                 <path d="M23 7l-7 5 7 5V7z"></path>
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
                 <line class="slash-line" x1="1" y1="1" x2="23" y2="23"></line>
               </svg>
             </button>
-            <button class="action-control-btn on" id="layoutToggleBtn" title="レイアウト切り替え">
+            <button class="action-control-btn on" id="layoutToggleBtn" type="button" title="レイアウト切り替え">
               <svg class="icon-svg" viewBox="0 0 24 24">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                 <line x1="9" y1="3" x2="9" y2="21"></line>
               </svg>
             </button>
-            <button class="action-control-btn settings-gear" id="settingsBtn">⚙</button>
+            <button class="action-control-btn settings-gear" id="settingsBtn" type="button">⚙</button>
           </div>
 
           <div class="side-panel-body">
@@ -111,9 +146,9 @@
                 </div>
                 <div class="chat-input-area">
                   <button id="imageBtn" type="button">📷</button>
-                  <input type="file" id="imageInput" accept="image/*" style="display: none;">
-                  <input type="text" id="chatInput" placeholder="メッセージを入力..." maxlength="100">
-                  <button id="chatSendBtn">送信</button>
+                  <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
+                  <input type="text" id="chatInput" placeholder="メッセージを入力..." maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="send">
+                  <button id="chatSendBtn" type="button">送信</button>
                 </div>
               </div>
             </div>
@@ -121,31 +156,34 @@
             <div id="tabContent-pdf" class="tab-content">
               <div class="pdf-container-root">
                 <div class="top-controls">
-                  <button id="uploadPdfBtn">パソコンから選択</button>
-                  <button id="drivePdfBtn">Googleドライブ</button>
+                  <button id="uploadPdfBtn" type="button">パソコンから選択</button>
+                  <button id="drivePdfBtn" type="button">Googleドライブ</button>
                   <input type="file" id="pdfFileInput" accept="application/pdf" style="display: none;">
                 </div>
                 
                 <div class="pdf-controls-bar">
                   <div class="pdf-page-nav">
-                    <button id="prevPageBtn">◀</button>
-                    <span id="pageInfo">1 / 1</span>
-                    <button id="nextPageBtn">▶</button>
+                    <button id="prevPageBtn" type="button">◀</button>
+                    <span id="pageInfoContainer" class="page-info-container">
+                      <input type="number" id="pdfPageInput" class="pdf-page-input" value="1" min="1" enterkeyhint="done">
+                      <span id="pageInfo">/ 1</span>
+                    </span>
+                    <button id="nextPageBtn" type="button">▶</button>
                   </div>
                   <div class="pdf-toolbar">
-                    <button id="zoomOutBtn">小</button>
+                    <button id="zoomOutBtn" type="button">小</button>
                     <span id="zoomLabel">100%</span>
-                    <button id="zoomInBtn">大</button>
+                    <button id="zoomInBtn" type="button">大</button>
                   </div>
                   <div class="draw-toolbar">
-                    <button id="penBtn">✏️ ペン</button>
-                    <button id="eraserBtn">🧹 消しゴム</button>
+                    <button id="penBtn" type="button">✏️ ペン</button>
+                    <button id="eraserBtn" type="button">🧹 消しゴム</button>
                     <input type="color" id="brushColor" value="#ff0000">
                     <div class="brush-size-container">
                       <input type="range" id="brushSize" min="1" max="20" value="5">
                       <span id="sizeLabel">5</span>
                     </div>
-                    <button id="clearBtn">全消去</button>
+                    <button id="clearBtn" type="button">全消去</button>
                   </div>
                 </div>
                 <div id="pdfFileNameLabel">共有中の資料はありません</div>
@@ -171,34 +209,37 @@
           </div>
 
           <div class="side-tab-bar">
-            <button class="tab-btn active" data-tab="chat">💬 <span>チャット</span></button>
-            <button class="tab-btn" data-tab="pdf">📄 <span>PDF共有</span></button>
-            <button class="tab-btn" data-tab="tab3">🎨 <span>効果</span></button>
-            <button class="tab-btn" data-tab="tab4">📊 <span>投票</span></button>
-            <button class="tab-btn" data-tab="tab5">📝 <span>メモ</span></button>
+            <button class="tab-btn active" data-tab="chat" type="button">
+              💬 <span>チャット</span>
+              <span id="chatUnreadBadge" class="unread-badge" style="display: none;">0</span>
+            </button>
+            <button class="tab-btn" data-tab="pdf" type="button">📄 <span>PDF共有</span></button>
+            <button class="tab-btn" data-tab="tab3" type="button">🎨 <span>効果</span></button>
+            <button class="tab-btn" data-tab="tab4" type="button">📊 <span>投票</span></button>
+            <button class="tab-btn" data-tab="tab5" type="button">📝 <span>メモ</span></button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="settingsModal" class="modal-overlay" style="display: none;">
+  <div id="settingsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" style="display: none;">
     <div class="modal-content">
-      <h3>各種設定</h3>
+      <h3 id="settingsModalTitle">各種設定</h3>
       <div class="modal-item">
         <label for="modalNameInput">表示名の変更:</label>
-        <input type="text" id="modalNameInput" maxlength="15">
+        <input type="text" id="modalNameInput" maxlength="15" autocomplete="nickname" enterkeyhint="done">
       </div>
       <div class="modal-item">
-        <button id="saveSettingsBtn">変更を保存</button>
-        <button id="closeSettingsBtn" class="close-btn">閉じる</button>
+        <button id="saveSettingsBtn" type="button">変更を保存</button>
+        <button id="closeSettingsBtn" class="close-btn" type="button">閉じる</button>
       </div>
     </div>
   </div>
 
   <div id="imageViewer" class="image-viewer">
-    <button id="closeImageViewer">✕</button>
-    <img id="viewerImage" src="" alt="拡大画像">
+    <button id="closeImageViewer" type="button">✕</button>
+    <img id="viewerImage" src="" alt="拡大画像" loading="lazy">
   </div>
 
   <script type="module" src="app.js"></script>
