@@ -1,5 +1,5 @@
 import { db } from "./firebase.js";
-import { ref, set, push, onChildAdded, onValue, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+import { ref, set, push, onChildAdded, onValue, remove, onDisconnect, off } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 export let myId = "user_" + Math.random().toString(36).substring(2, 9);
 export let roomParticipants = {};
@@ -12,154 +12,311 @@ const pdfRef = ref(db, `rooms/${roomId}/pdfData`);
 
 let signalingListener = null;
 
-export async function joinRoom(name) {
-  roomParticipants[myId] = { name: name };
-  
-  await remove(signalingRef);
+// ① 退出検知用の前回状態記録オブジェクト
+let previousParticipants = {};
 
-  const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
-  await set(myParticipantRef, { name: name });
-  console.log(`${name} としてFirebaseの部屋に参加しました。ID: ${myId}`);
+// ⑥ チャット・画像の重複処理防止用Set
+const processedMessageIds = new Set();
 
-  onDisconnect(myParticipantRef).remove();
+// ⑧ PDF変更検知用の前回状態記録変数
+let previousPdfDataStr = null;
 
-  const leaveRoomData = () => {
-    const pRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/participants/${myId}.json`;
-    fetch(pRefUrl, { method: "DELETE", keepalive: true });
-
-    if (Object.keys(roomParticipants).length <= 1) {
-      fetch(`https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/messages.json`, { method: "DELETE", keepalive: true });
-      fetch(`https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`, { method: "DELETE", keepalive: true });
-      fetch(`https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/drawings/${roomId}.json`, { method: "DELETE", keepalive: true });
-    }
-  };
-
-  window.addEventListener("pagehide", leaveRoomData);
-  window.addEventListener("beforeunload", leaveRoomData);
+/**
+ * エラーログの共通処理
+ */
+function logError(actionName, err) {
+  console.error(`[Firebase Error - ${actionName}]`, {
+    roomId: roomId,
+    myId: myId,
+    error: err?.message || err
+  });
 }
 
+export async function joinRoom(name) {
+  try {
+    roomParticipants[myId] = { name: name };
+    
+    await remove(signalingRef);
+
+    const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
+    // ⑤ 参加者データに joinedAt タイムスタンプを追加
+    await set(myParticipantRef, { 
+      name: name,
+      joinedAt: Date.now()
+    });
+    console.log(`${name} としてFirebaseの部屋に参加しました。ID: ${myId}`);
+
+    onDisconnect(myParticipantRef).remove();
+    // ③ シグナリング情報のオンディスクネクト削除登録
+    onDisconnect(signalingRef).remove();
+
+    const leaveRoomData = () => {
+      const pRefUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/participants/${myId}.json`;
+      const messagesUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/messages.json`;
+      const pdfUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`;
+      const drawingsUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/drawings/${roomId}.json`;
+
+      // ④ 可能な場合は navigator.sendBeacon を優先利用
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(pRefUrl, JSON.stringify({ method: "DELETE" })); // REST APIのDELETEトリガー
+        if (Object.keys(roomParticipants).length <= 1) {
+          navigator.sendBeacon(messagesUrl, JSON.stringify({ method: "DELETE" }));
+          navigator.sendBeacon(pdfUrl, JSON.stringify({ method: "DELETE" }));
+          navigator.sendBeacon(drawingsUrl, JSON.stringify({ method: "DELETE" }));
+        }
+      } else {
+        fetch(pRefUrl, { method: "DELETE", keepalive: true });
+        if (Object.keys(roomParticipants).length <= 1) {
+          fetch(messagesUrl, { method: "DELETE", keepalive: true });
+          fetch(pdfUrl, { method: "DELETE", keepalive: true });
+          fetch(drawingsUrl, { method: "DELETE", keepalive: true });
+        }
+      }
+    };
+
+    window.addEventListener("pagehide", leaveRoomData);
+    window.addEventListener("beforeunload", leaveRoomData);
+  } catch (err) {
+    logError("joinRoom", err);
+  }
+}
+
+// ① app.jsの仕様 (peerId, info) コールバックへの変換処理
 export function listenParticipants(callback) {
   onValue(participantsRef, async (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      roomParticipants = data;
-    } else {
-      roomParticipants = {};
-      await remove(chatRef);
-      await remove(pdfRef);
-      await remove(ref(db, `drawings/${roomId}`));
-      console.log("部屋が空になったため、データを消去しました。");
+    try {
+      const data = snapshot.val() || {};
+      
+      // ⑪ 中身の参照を維持しながら更新
+      for (const key in roomParticipants) {
+        delete roomParticipants[key];
+      }
+      Object.assign(roomParticipants, data);
+
+      if (!snapshot.exists()) {
+        await remove(chatRef);
+        await remove(pdfRef);
+        await remove(ref(db, `drawings/${roomId}`));
+        console.log("部屋が空になったため、データを消去しました。");
+      }
+
+      // 新規参加者のチェック (前回いなくて、今回いるメンバー)
+      for (const peerId in data) {
+        if (!previousParticipants[peerId]) {
+          callback(peerId, data[peerId]);
+        }
+      }
+
+      // 退室者のチェック (前回いて、今回いないメンバー)
+      for (const peerId in previousParticipants) {
+        if (!data[peerId]) {
+          callback(peerId, null);
+        }
+      }
+
+      // 差分確認用に状態を退避
+      previousParticipants = JSON.parse(JSON.stringify(data));
+
+    } catch (err) {
+      logError("listenParticipants", err);
     }
-    callback(roomParticipants);
   });
 }
 
 export async function updateMyName(newName) {
   if (roomParticipants[myId]) {
-    const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
-    await set(myParticipantRef, { name: newName });
+    try {
+      const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
+      await set(myParticipantRef, { 
+        name: newName,
+        joinedAt: Date.now() 
+      });
+    } catch (err) {
+      logError("updateMyName", err);
+    }
   }
 }
 
 export function sendChatMessageToFirebase(sender, text) {
-  const newMessageRef = push(chatRef);
-  set(newMessageRef, {
-    sender: sender,
-    text: text,
-    timestamp: Date.now()
-  });
+  try {
+    const newMessageRef = push(chatRef);
+    set(newMessageRef, {
+      sender: sender,
+      text: text,
+      timestamp: Date.now()
+    });
+  } catch (err) {
+    logError("sendChatMessageToFirebase", err);
+  }
 }
 
 export function sendImageMessageToFirebase(sender, imageData) {
-  const newMessageRef = push(chatRef);
-  set(newMessageRef, {
-    sender: sender,
-    image: imageData,
-    timestamp: Date.now()
-  });
+  try {
+    const newMessageRef = push(chatRef);
+    set(newMessageRef, {
+      sender: sender,
+      image: imageData,
+      timestamp: Date.now()
+    });
+  } catch (err) {
+    logError("sendImageMessageToFirebase", err);
+  }
 }
 
+// ⑥ & ⑦ 重複防止とイメージ・テキストの両データ加工なしcallback
 export function listenChatMessages(callback) {
   onChildAdded(chatRef, (snapshot) => {
-    const msg = snapshot.val();
-    if (msg) {
-      callback(msg);
+    try {
+      const msgId = snapshot.key;
+      if (processedMessageIds.has(msgId)) return;
+      processedMessageIds.add(msgId);
+
+      const msg = snapshot.val();
+      if (msg) {
+        callback(msg);
+      }
+    } catch (err) {
+      logError("listenChatMessages", err);
     }
   });
 }
 
 export async function sendPdfToFirebase(sharedUrl, fileName) {
-  await set(pdfRef, {
-    pdf: sharedUrl,
-    name: fileName,
-    senderId: myId,
-    page: 1, // 初期ページ初期化追加
-    timestamp: Date.now()
-  });
+  try {
+    await set(pdfRef, {
+      pdf: sharedUrl,
+      name: fileName,
+      senderId: myId,
+      page: 1, // 初期ページ初期化追加
+      timestamp: Date.now()
+    });
+  } catch (err) {
+    logError("sendPdfToFirebase", err);
+  }
 }
 
 export function updatePdfPageInFirebase(page) {
-  set(ref(db, `rooms/${roomId}/pdfData/page`), page);
+  try {
+    set(ref(db, `rooms/${roomId}/pdfData/page`), page);
+  } catch (err) {
+    logError("updatePdfPageInFirebase", err);
+  }
 }
 
+// ⑧ 変更があった場合だけ callback
 export function listenPdfData(callback) {
   onValue(pdfRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data && data.pdf) {
-      callback(data);
+    try {
+      const data = snapshot.val();
+      if (data && data.pdf) {
+        const currentDataStr = JSON.stringify(data);
+        if (currentDataStr !== previousPdfDataStr) {
+          previousPdfDataStr = currentDataStr;
+          callback(data);
+        }
+      }
+    } catch (err) {
+      logError("listenPdfData", err);
     }
   });
 }
 
 /**
- * ⑥ 手書きのストロークをFirebaseに送信・保存する
+ * 手書きのストロークをFirebaseに送信・保存する
  */
 export function saveStrokeToFirebase(page, stroke) {
-  push(ref(db, `drawings/${roomId}/${page}`), stroke);
+  try {
+    push(ref(db, `drawings/${roomId}/${page}`), stroke);
+  } catch (err) {
+    logError("saveStrokeToFirebase", err);
+  }
 }
 
 /**
- * ⑦ 特定ページのFirebase手書きストロークをクリアする
+ * 特定ページのFirebase手書きストロークをクリアする
  */
 export function clearStrokesInFirebase(page) {
-  remove(ref(db, `drawings/${roomId}/${page}`));
+  try {
+    remove(ref(db, `drawings/${roomId}/${page}`));
+  } catch (err) {
+    logError("clearStrokesInFirebase", err);
+  }
 }
 
 /**
- * ⑦ Firebaseの手書きイベントをリアルタイムにリッスンする
+ * Firebaseの手書きイベントをリアルタイムにリッスンする
+ * ⑫ リスナー解除関数を返却するように修正
  */
 export function listenStrokes(page, onAdded, onCleared) {
   const pageDrawRef = ref(db, `drawings/${roomId}/${page}`);
   
-  onChildAdded(pageDrawRef, (snapshot) => {
+  const handleChildAdded = (snapshot) => {
     onAdded(snapshot.val());
-  });
+  };
 
-  onValue(pageDrawRef, (snapshot) => {
+  const handleValue = (snapshot) => {
     if (!snapshot.exists()) {
       onCleared();
     }
-  });
+  };
+
+  onChildAdded(pageDrawRef, handleChildAdded);
+  onValue(pageDrawRef, handleValue);
+
+  // リスナーを正しくクリーンアップするための関数を返す
+  return () => {
+    try {
+      off(pageDrawRef, "child_added", handleChildAdded);
+      off(pageDrawRef, "value", handleValue);
+    } catch (err) {
+      logError("listenStrokes_off", err);
+    }
+  };
 }
 
+// ⑨ timestampを追加
 export function sendSignalingMessage(targetPeerId, payload) {
-  const targetSignalingRef = ref(db, `rooms/${roomId}/signaling/${targetPeerId}`);
-  const newMessageRef = push(targetSignalingRef);
-  set(newMessageRef, {
-    from: myId,
-    data: payload
-  });
+  try {
+    const targetSignalingRef = ref(db, `rooms/${roomId}/signaling/${targetPeerId}`);
+    const newMessageRef = push(targetSignalingRef);
+    set(newMessageRef, {
+      from: myId,
+      data: {
+        ...payload,
+        timestamp: Date.now() // シグナリングに送信時刻を付与
+      }
+    });
+  } catch (err) {
+    logError("sendSignalingMessage", err);
+  }
 }
 
+// ②, ⑩, ⑯ 非同期コールバック完了後の削除および古いメッセージのフィルタリング
 export function listenSignalingMessage(callback) {
   signalingListener = callback;
-  onChildAdded(signalingRef, (snapshot) => {
-    const msg = snapshot.val();
-    if (msg && msg.from !== myId) {
-      if (signalingListener) {
-        signalingListener(msg.from, msg.data);
+  onChildAdded(signalingRef, async (snapshot) => {
+    try {
+      const msg = snapshot.val();
+      if (msg && msg.from !== myId) {
+        const payload = msg.data || {};
+        const timestamp = payload.timestamp || Date.now();
+        const ageInSeconds = (Date.now() - timestamp) / 1000;
+
+        // ⑩ 60秒以上古いメッセージはコールバックせずに破棄
+        if (ageInSeconds >= 60) {
+          await remove(snapshot.ref);
+          return;
+        }
+
+        if (signalingListener) {
+          // ⑯ コールバックがPromiseを返却した際、await完了を待機してからFirebaseよりノードを削除
+          await signalingListener(msg.from, msg.data);
+        }
+        // ② 処理が成功して完了した（callbackが終了した）タイミングで安全に削除
+        await remove(snapshot.ref);
       }
-      remove(snapshot.ref); 
+    } catch (err) {
+      logError("listenSignalingMessage", err);
     }
   });
 }
