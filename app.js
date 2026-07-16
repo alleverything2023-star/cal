@@ -65,19 +65,9 @@ tabButtons.forEach(btn => {
   });
 });
 
-// アプリ起動時のセットアップ
 (async function init() {
-  try {
-    await updateDeviceList();
-    await updatePreview();
-  } catch (e) {
-    console.error("初期デバイス取得失敗:", e);
-  }
-  
-  // Google API と Identity Services の読み込み
   loadGapiAndGsi();
 })();
-
 async function updatePreview() {
   try {
     if (localStream) {
