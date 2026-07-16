@@ -80,15 +80,21 @@ tabButtons.forEach(btn => {
 
 async function updatePreview() {
   try {
-    const stream = await getLocalStream(cameraSelect.value || null, micSelect.value || null);
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+    }
+    localStream = await getLocalStream(
+      cameraSelect.value || null,
+      micSelect.value || null
+    );
     if (myPreviewVideo) {
-      myPreviewVideo.srcObject = stream;
+      myPreviewVideo.srcObject = localStream;
     }
     // トラックの初期ON/OFF制御
-    stream.getVideoTracks().forEach(t => t.enabled = initCameraToggle.checked);
-    stream.getAudioTracks().forEach(t => t.enabled = initMicToggle.checked);
+    localStream.getVideoTracks().forEach(t => t.enabled = initCameraToggle.checked);
+    localStream.getAudioTracks().forEach(t => t.enabled = initMicToggle.checked);
   } catch(e) {
-    console.warn("プレビュー用ストリーム取得失敗:", e);
+    console.error(e);
   }
 }
 
@@ -104,7 +110,12 @@ if (joinButton) {
     currentUserName = name;
     
     try {
-      localStream = await getLocalStream(cameraSelect.value || null, micSelect.value || null);
+      if (!localStream) {
+        localStream = await getLocalStream(
+          cameraSelect.value || null,
+          micSelect.value || null
+        );
+      }
       if (myLocalVideo) myLocalVideo.srcObject = localStream;
       
       // 事前トグルの状態を反映
