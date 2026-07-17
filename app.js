@@ -68,10 +68,10 @@ tabButtons.forEach(btn => {
 (async function init() {
   loadGapiAndGsi();
   try {
-    await updateDeviceList();
-    await updatePreview();
+    // 権限要求なしで一覧取得のみ（ユーザー操作を伴わないgetUserMedia呼び出しを避ける）
+    await updateDeviceList(false);
   } catch (e) {
-    console.error("初期デバイス取得に失敗しました", e);
+    console.error("初期デバイス一覧取得に失敗しました", e);
   }
 })();
 async function updatePreview() {
