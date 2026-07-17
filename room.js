@@ -56,21 +56,18 @@ export async function joinRoom(name) {
       const pdfUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`;
       const drawingsUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/drawings/${roomId}.json`;
 
-      // ④ 可能な場合は navigator.sendBeacon を優先利用
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(pRefUrl, JSON.stringify({ method: "DELETE" })); // REST APIのDELETEトリガー
-        if (Object.keys(roomParticipants).length <= 1) {
-          navigator.sendBeacon(messagesUrl, JSON.stringify({ method: "DELETE" }));
-          navigator.sendBeacon(pdfUrl, JSON.stringify({ method: "DELETE" }));
-          navigator.sendBeacon(drawingsUrl, JSON.stringify({ method: "DELETE" }));
-        }
-      } else {
+      // sendBeaconは常にPOSTでしか送信できず、FirebaseのREST APIではPOSTは
+      // 「新しい子要素の追加」を意味してしまうため削除には使えない。
+      // 削除にはDELETEメソッドを明示できるfetch(+keepalive)を使う。
+      try {
         fetch(pRefUrl, { method: "DELETE", keepalive: true });
         if (Object.keys(roomParticipants).length <= 1) {
           fetch(messagesUrl, { method: "DELETE", keepalive: true });
           fetch(pdfUrl, { method: "DELETE", keepalive: true });
           fetch(drawingsUrl, { method: "DELETE", keepalive: true });
         }
+      } catch (err) {
+        logError("leaveRoomData", err);
       }
     };
 
