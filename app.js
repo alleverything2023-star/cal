@@ -114,7 +114,12 @@ if (joinButton) {
 
       permissionStream.getTracks().forEach(track => track.stop());
 
-      await updateDeviceList();
+      // カメラ/マイクのハードウェア解放が完了するまで少し待つ
+      // (解放直後に再取得すると、一部のスマホで "could not start video source" になるため)
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 権限はすでに取得済みなので、ここでは一覧取得のみ行う(二重にgetUserMediaを呼ばない)
+      await updateDeviceList(false);
 
       const name = nameInput.value.trim() || "名無しさん";
       currentUserName = name;
