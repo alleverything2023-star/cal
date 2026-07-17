@@ -493,6 +493,94 @@ function createPicker() {
   picker.setVisible(true);
 }
 
+/* ========================================================
+   デプロイ更新チェック（古いキャッシュを見ていないか自動検知）
+   ======================================================== */
+const VERSION_CHECK_URL = "./version.json";
+const VERSION_CHECK_INTERVAL_MS = 60 * 1000; // 60秒おきにチェック
+
+let loadedVersion = null;
+let updateBannerEl = null;
+
+async function fetchVersion() {
+  try {
+    // キャッシュを無視して必ず最新のversion.jsonを取得する
+    const res = await fetch(`${VERSION_CHECK_URL}?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.version ?? null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function showUpdateBanner() {
+  if (updateBannerEl) return; // 既に表示中なら何もしない
+
+  updateBannerEl = document.createElement("div");
+  updateBannerEl.textContent = "新しいバージョンが公開されました。";
+
+  Object.assign(updateBannerEl.style, {
+    position: "fixed",
+    bottom: "20px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: "#5865f2",
+    color: "#fff",
+    padding: "12px 18px",
+    borderRadius: "10px",
+    boxShadow: "0 4px 15px rgba(0,0,0,0.4)",
+    zIndex: 9999,
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    fontSize: "0.9rem"
+  });
+
+  const reloadBtn = document.createElement("button");
+  reloadBtn.textContent = "更新する";
+  reloadBtn.type = "button";
+  Object.assign(reloadBtn.style, {
+    background: "#fff",
+    color: "#5865f2",
+    border: "none",
+    borderRadius: "6px",
+    padding: "6px 12px",
+    fontWeight: "bold",
+    cursor: "pointer"
+  });
+  reloadBtn.onclick = () => location.reload();
+
+  updateBannerEl.appendChild(reloadBtn);
+  document.body.appendChild(updateBannerEl);
+}
+
+async function checkForUpdate() {
+  const latest = await fetchVersion();
+  if (latest === null) return; // 取得失敗時は何もしない（通信一時エラーなどを無視）
+
+  if (loadedVersion === null) {
+    // 初回チェック時の値を「今表示しているバージョン」として記録
+    loadedVersion = latest;
+    return;
+  }
+
+  if (latest !== loadedVersion) {
+    showUpdateBanner();
+  }
+}
+
+// ページ読み込み後にもう一度確認 ＋ 定期的にチェック
+setTimeout(checkForUpdate, 3000);
+setInterval(checkForUpdate, VERSION_CHECK_INTERVAL_MS);
+
+// スリープ復帰・タブ切り替えから戻った時にも即チェック
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    checkForUpdate();
+  }
+});
+
 async function pickerCallback(data) {
   if (data.action === google.picker.Action.PICKED) {
     const doc = data.docs[0];
