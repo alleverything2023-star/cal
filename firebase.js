@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-import { getDatabase, ref, ServerValue } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+import { getDatabase, ref } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC8xaZlj3hnMNYeppvbtxZFLqw4q-9ca9g",
@@ -16,8 +16,8 @@ export let app;
 export let db;
 export let connectedRef;
 
-// ④ serverTimestamp用の参照 (ServerValue.TIMESTAMP) をいつでも使えるようエクスポート
-export const serverTimestamp = ServerValue.TIMESTAMP;
+// ④ serverTimestamp用の参照 (Firebaseが実際に送信するサーバータイムスタンプのリテラル表現)
+export const serverTimestamp = { ".sv": "timestamp" };
 
 try {
   // ② initializeApp重複防止処理
