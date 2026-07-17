@@ -67,6 +67,12 @@ tabButtons.forEach(btn => {
 
 (async function init() {
   loadGapiAndGsi();
+  try {
+    await updateDeviceList();
+    await updatePreview();
+  } catch (e) {
+    console.error("初期デバイス取得に失敗しました", e);
+  }
 })();
 async function updatePreview() {
   try {
