@@ -11,22 +11,29 @@ export async function getLocalStream(cameraId = null, micId = null) {
   return navigator.mediaDevices.getUserMedia(constraints);
 }
 
-export async function updateDeviceList() {
+export async function updateDeviceList(requestPermission = true) {
   const cameraSelect = document.getElementById("cameraSelect");
   const micSelect = document.getElementById("micSelect");
 
   if (!cameraSelect || !micSelect) return;
 
   // 権限取得
+  // requestPermission=false の場合はgetUserMediaを呼ばない。
+  // iPad Safari等ではユーザー操作(タップ)を伴わずにgetUserMediaを呼ぶと
+  // リクエストが宙に浮き、後続の(ボタン操作による)正規のカメラ要求まで
+  // 反応しなくなることがあるため、ページ読み込み時の自動呼び出しでは
+  // 権限要求そのものをスキップし、一覧取得のみ行う。
   let tempStream = null;
 
-  try {
-    tempStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
-    });
-  } catch (e) {
-    console.warn("Permission denied", e);
+  if (requestPermission) {
+    try {
+      tempStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+    } catch (e) {
+      console.warn("Permission denied", e);
+    }
   }
 
   const devices = await navigator.mediaDevices.enumerateDevices();
