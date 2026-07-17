@@ -65,9 +65,28 @@ tabButtons.forEach(btn => {
   });
 });
 
+// 【修正箇所】初期化処理：ロード時に権限を取得し、デバイスリストを構築する
 (async function init() {
+  console.log("[Debug] init() : 初期化処理を開始します");
   loadGapiAndGsi();
+
+  try {
+    console.log("[Debug] init() : カメラとマイクのアクセス権限を要求しています...");
+    const permissionStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+    // 権限取得後、ランプが点灯しっぱなしにならないよう停止
+    permissionStream.getTracks().forEach(track => track.stop());
+    console.log("[Debug] init() : 権限の取得に成功しました。デバイスリストを更新します。");
+    
+    await updateDeviceList();
+    await updatePreview();
+  } catch (err) {
+    console.error("[Error] init() : 初期デバイス取得に失敗しました。原因: ", err.name, err.message);
+  }
 })();
+
 async function updatePreview() {
   try {
     if (localStream) {
@@ -84,7 +103,7 @@ async function updatePreview() {
     localStream.getVideoTracks().forEach(t => t.enabled = initCameraToggle.checked);
     localStream.getAudioTracks().forEach(t => t.enabled = initMicToggle.checked);
   } catch(e) {
-    console.error(e);
+    console.error("[Error] updatePreview() : プレビュー更新エラー", e);
   }
 }
 
@@ -93,108 +112,58 @@ if (micSelect) micSelect.addEventListener("change", updatePreview);
 if (initCameraToggle) initCameraToggle.addEventListener("change", updatePreview);
 if (initMicToggle) initMicToggle.addEventListener("change", updatePreview);
 
-// 参加処理
+// 【修正箇所】参加処理：重複していたコードを削除し、１つのイベント内に整理
 if (joinButton) {
-joinButton.addEventListener("click", async () => {
+  joinButton.addEventListener("click", async () => {
+    joinButton.disabled = true;
+    console.log("[Debug] joinButton : 参加処理を開始します");
 
-  joinButton.disabled = true;
-
-  try {
-
-    // Safari対策
-    const permissionStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
-    });
-
-    permissionStream.getTracks().forEach(track => track.stop());
-
-    await updateDeviceList();
-
-    const name = nameInput.value.trim() || "名無しさん";
-    currentUserName = name;
-
-    localStream = await getLocalStream(
-      cameraSelect.value || null,
-      micSelect.value || null
-    );
-
-    if (myLocalVideo) {
-      myLocalVideo.srcObject = localStream;
-    }
-
-    if (myPreviewVideo) {
-      myPreviewVideo.srcObject = localStream;
-    }
-
-    const camOn = initCameraToggle.checked;
-    const micOn = initMicToggle.checked;
-
-    localStream.getVideoTracks().forEach(t => t.enabled = camOn);
-    localStream.getAudioTracks().forEach(t => t.enabled = micOn);
-
-    updateButtonStatusUI(mainCamBtn, "myCamStatus", camOn);
-    updateButtonStatusUI(mainMicBtn, "myMicStatus", micOn);
-
-    await joinRoom(name);
-
-    isJoined = true;
-
-    joinScreen.style.display = "none";
-    roomScreen.style.display = "block";
-
-    document.getElementById("myVideoName").textContent = name;
-
-    setupRoomListeners();
-
-  } catch (err) {
-
-    console.error(err);
-
-    alert(
-      "カメラ・マイクを利用できません。\n\nSafariのサイト設定でカメラ・マイクを許可してください。"
-    );
-
-  } finally {
-
-    joinButton.disabled = false;
-
-  }
-
-});
-    const name = nameInput.value.trim() || "名無しさん";
-    currentUserName = name;
-    
     try {
-      if (!localStream) {
-        localStream = await getLocalStream(
-          cameraSelect.value || null,
-          micSelect.value || null
-        );
+      const name = nameInput.value.trim() || "名無しさん";
+      currentUserName = name;
+
+      // 念のため再度デバイスリストを更新（不要なら削除可）
+      await updateDeviceList();
+
+      localStream = await getLocalStream(
+        cameraSelect.value || null,
+        micSelect.value || null
+      );
+
+      if (myLocalVideo) {
+        myLocalVideo.srcObject = localStream;
       }
-      if (myLocalVideo) myLocalVideo.srcObject = localStream;
-      
-      // 事前トグルの状態を反映
+      if (myPreviewVideo) {
+        myPreviewVideo.srcObject = localStream;
+      }
+
       const camOn = initCameraToggle.checked;
       const micOn = initMicToggle.checked;
+
       localStream.getVideoTracks().forEach(t => t.enabled = camOn);
       localStream.getAudioTracks().forEach(t => t.enabled = micOn);
-      
+
       updateButtonStatusUI(mainCamBtn, "myCamStatus", camOn);
       updateButtonStatusUI(mainMicBtn, "myMicStatus", micOn);
 
+      console.log("[Debug] joinButton : 部屋に入室します。ユーザー名:", name);
       await joinRoom(name);
+
       isJoined = true;
 
-      if (joinScreen) joinScreen.style.display = "none";
-      if (roomScreen) roomScreen.style.display = "block";
+      joinScreen.style.display = "none";
+      roomScreen.style.display = "block";
 
       document.getElementById("myVideoName").textContent = name;
 
-      // FirebaseメッセージとP2Pのリスナー開始
       setupRoomListeners();
+      console.log("[Debug] joinButton : 入室処理が正常に完了しました");
+
     } catch (err) {
-      alert("メディアデバイスへのアクセスに失敗しました: " + err.message);
+      console.error("[Error] joinButton : 入室エラー", err);
+      alert("カメラ・マイクを利用できません。\n\nブラウザの設定でカメラ・マイクを許可してください。\n詳細: " + err.message);
+    } finally {
+      joinButton.disabled = false;
     }
   });
 }
