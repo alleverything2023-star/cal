@@ -177,13 +177,17 @@ function setupRoomListeners() {
     }
   });
 
-  listenChatMessages((sender, text) => {
-    appendMessage(sender, text, sender === currentUserName);
+  listenChatMessages((msg) => {
+    if (msg.image) {
+      appendImageMessage(msg.sender, msg.image, msg.sender === currentUserName);
+    } else {
+      appendMessage(msg.sender, msg.text, msg.sender === currentUserName);
+    }
   });
 
-  listenPdfData((pdfUrl, fileName) => {
-    if (pdfFileNameLabel) pdfFileNameLabel.textContent = fileName || "共有中の資料";
-    loadAndRenderPdf(pdfUrl);
+  listenPdfData((data) => {
+    if (pdfFileNameLabel) pdfFileNameLabel.textContent = data.name || "共有中の資料";
+    loadAndRenderPdf(data.pdf);
   });
 }
 
