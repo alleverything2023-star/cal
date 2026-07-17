@@ -8,7 +8,17 @@
   <meta name="apple-mobile-web-app-title" content="通話アプリ">
   
   <title>ブラウザ通話アプリ</title>
-  
+
+  <!-- デバッグ用コンソール(?debug=1 の時だけ有効。iPad等でエラー内容を直接確認するための一時的な仕組み) -->
+  <script>
+    if (location.search.includes('debug=1')) {
+      const erudaScript = document.createElement('script');
+      erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      erudaScript.onload = function () { eruda.init(); };
+      document.head.appendChild(erudaScript);
+    }
+  </script>
+    
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22 width=%22100%22 height=%22100%22><text y=%220.9em%22 font-size=%2290%22>📞</text></svg>">
   <link rel="stylesheet" href="style.css">
 
