@@ -1,5 +1,6 @@
 .dark-theme {
-  --bg-main: #1e1f22;
+/*  --bg-main: #1e1f22;*/
+  --bg-main: #ffffff;
   --bg-card: #2b2d31;
   --bg-left: #111214;
   --bg-input: #1e1f22;
