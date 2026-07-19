@@ -1,4 +1,4 @@
-import { joinRoom, listenParticipants, myId, updateMyName, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData } from "./room.js";
+import { joinRoom, listenParticipants, myId, updateMyName, updateMyMediaState, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData } from "./room.js";
 import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 import { loadAndRenderPdf, renderCurrentPage, changePage } from "./pdf.js";
@@ -141,7 +141,7 @@ if (joinButton) {
       updateButtonStatusUI(mainCamBtn, "myCamStatus", camOn);
       updateButtonStatusUI(mainMicBtn, "myMicStatus", micOn);
 
-      await joinRoom(name);
+      await joinRoom(name, camOn, micOn);
 
       isJoined = true;
 
@@ -171,11 +171,17 @@ function setupRoomListeners() {
   listenParticipants((id, info) => {
     if (id === myId) return;
     if (info) {
-      addRemoteVideoCard(id, info.name);
-      startP2P(id, localStream, (peerId, remoteStream) => {
-        const video = document.getElementById(`video-${peerId}`);
-        if (video) video.srcObject = remoteStream;
-      });
+      if (document.getElementById(`card-${id}`)) {
+        // 既にカードがあれば、マイク/カメラの状態だけ更新
+        updateRemoteMediaStatusUI(id, info);
+      } else {
+        addRemoteVideoCard(id, info.name);
+        updateRemoteMediaStatusUI(id, info);
+        startP2P(id, localStream, (peerId, remoteStream) => {
+          const video = document.getElementById(`video-${peerId}`);
+          if (video) video.srcObject = remoteStream;
+        });
+      }
     } else {
       removeRemoteVideoCard(id);
       closeP2P(id);
@@ -220,6 +226,7 @@ if (mainMicBtn) {
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
       updateButtonStatusUI(mainMicBtn, "myMicStatus", audioTrack.enabled);
+      updateMyMediaState({ micOn: audioTrack.enabled });
     }
   };
 }
@@ -231,6 +238,7 @@ if (mainCamBtn) {
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
       updateButtonStatusUI(mainCamBtn, "myCamStatus", videoTrack.enabled);
+      updateMyMediaState({ camOn: videoTrack.enabled });
     }
   };
 }
@@ -344,6 +352,23 @@ function removeRemoteVideoCard(peerId) {
   const card = document.getElementById(`card-${peerId}`);
   if (card) card.remove();
   updateGridCountClass();
+}
+
+// 他参加者のマイク/カメラの状態を、名前バーのアイコンに反映する
+function updateRemoteMediaStatusUI(peerId, info) {
+  const micIndicator = document.getElementById(`mic-${peerId}`);
+  const camIndicator = document.getElementById(`cam-${peerId}`);
+  const micOn = info.micOn !== false; // 情報がまだ無い場合はON扱い
+  const camOn = info.camOn !== false;
+
+  if (micIndicator) {
+    if (micOn) micIndicator.classList.add("on");
+    else micIndicator.classList.remove("on");
+  }
+  if (camIndicator) {
+    if (camOn) camIndicator.classList.add("on");
+    else camIndicator.classList.remove("on");
+  }
 }
 
 function updateGridCountClass() {
