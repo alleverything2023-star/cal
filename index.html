@@ -9,7 +9,7 @@
   
   <title>ブラウザ通話アプリ</title>
 
-  <!-- デバッグ用コンソール(?debug=1 の時だけ有効。iPad等でエラー内容を直接確認するための一時的な仕組み) -->
+  <!-- デバッグ用コンソール(?debug=1 の時だけ有効。エラー内容を直接確認するための一時的な仕組み) -->
   <script>
     if (location.search.includes('debug=1')) {
       const erudaScript = document.createElement('script');
@@ -18,7 +18,7 @@
       document.head.appendChild(erudaScript);
     }
   </script>
-    
+  
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22 width=%22100%22 height=%22100%22><text y=%220.9em%22 font-size=%2290%22>📞</text></svg>">
   <link rel="stylesheet" href="style.css">
 
@@ -156,7 +156,7 @@
                 </div>
                 <div class="chat-input-area">
                   <button id="imageBtn" type="button">📷</button>
-                  <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
+                  <input type="file" id="imageInput" accept="image/*" style="display: none;">
                   <input type="text" id="chatInput" placeholder="メッセージを入力..." maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="send">
                   <button id="chatSendBtn" type="button">送信</button>
                 </div>
