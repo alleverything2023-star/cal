@@ -656,6 +656,46 @@ select, input[type="text"] {
   .layout-default #videoGrid {
     grid-auto-rows: 1fr;
   }
+
+  /* PDF/チャットなど各タブの中身を、ツールバー込みで丸ごとスクロールできるようにする */
+  .tab-content {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pdf-container-root {
+    height: auto;
+    min-height: 100%;
+  }
+  .pdf-scroll-container {
+    flex: none;
+    overflow: visible;
+  }
+}
+
+/* スマホ縦画面専用: レイアウト切り替えボタンを押した時(サイドバー表示)、
+   カメラ欄を小さな横スクロール帯にして、PDF/チャット側をその分広げる */
+@media (max-width: 768px) and (orientation: portrait) {
+  .layout-sidebar #leftContainer {
+    height: 120px;
+    max-height: 120px;
+    padding: 8px;
+  }
+  .layout-sidebar #videoGrid {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .layout-sidebar .videoCard {
+    width: 160px;
+    height: 100%;
+    flex-shrink: 0;
+  }
+  .layout-sidebar #rightContainer {
+    flex: 1;
+  }
 }
 
 /* スマホ縦画面専用: PDF共有タブの操作性改善 */
