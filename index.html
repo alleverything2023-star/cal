@@ -208,7 +208,52 @@
             </div>
 
             <div id="tabContent-tab3" class="tab-content">
-              <div class="tab-placeholder">🎨 エフェクト設定（開発中）</div>
+              <div class="timer-container">
+                <div class="timer-slot-switcher">
+                  <button id="timerPrevBtn" class="timer-nav-btn" type="button" aria-label="前のタイマー">◁</button>
+                  <div class="timer-dots" id="timerDots">
+                    <span class="timer-dot" data-slot="0"></span>
+                    <span class="timer-dot" data-slot="1"></span>
+                    <span class="timer-dot" data-slot="2"></span>
+                  </div>
+                  <button id="timerNextBtn" class="timer-nav-btn" type="button" aria-label="次のタイマー">▷</button>
+                </div>
+
+                <div class="timer-display-area">
+                  <svg class="timer-ring" viewBox="0 0 200 200">
+                    <circle class="timer-ring-bg" cx="100" cy="100" r="90"></circle>
+                    <circle id="timerRingProgress" class="timer-ring-progress" cx="100" cy="100" r="90"></circle>
+                  </svg>
+                  <div class="timer-time-label">
+                    <span id="timerTimeText">25:00</span>
+                    <span id="timerPhaseLabel" class="timer-phase-label">集中</span>
+                  </div>
+                </div>
+
+                <div class="timer-controls">
+                  <button id="timerStartStopBtn" class="timer-btn timer-btn-primary" type="button">スタート</button>
+                  <button id="timerResetBtn" class="timer-btn" type="button">リセット</button>
+                </div>
+
+                <div class="timer-settings">
+                  <div class="timer-setting-item">
+                    <label for="focusMinutesInput">集中時間(分)</label>
+                    <input type="number" id="focusMinutesInput" min="1" max="180" value="25">
+                  </div>
+                  <div class="timer-setting-item">
+                    <label for="breakMinutesInput">休憩時間(分)</label>
+                    <input type="number" id="breakMinutesInput" min="1" max="60" value="5">
+                  </div>
+                  <div class="timer-setting-item">
+                    <label for="longBreakMinutesInput">長い休憩(分)</label>
+                    <input type="number" id="longBreakMinutesInput" min="1" max="60" value="15">
+                  </div>
+                  <div class="timer-setting-item">
+                    <label for="cyclesInput">何回毎に長い休憩か</label>
+                    <input type="number" id="cyclesInput" min="1" max="12" value="4">
+                  </div>
+                </div>
+              </div>
             </div>
             <div id="tabContent-tab4" class="tab-content">
               <div class="tab-placeholder">📊 アンケート機能（開発中）</div>
@@ -224,7 +269,7 @@
               <span id="chatUnreadBadge" class="unread-badge" style="display: none;">0</span>
             </button>
             <button class="tab-btn" data-tab="pdf" type="button">📄 <span>PDF共有</span></button>
-            <button class="tab-btn" data-tab="tab3" type="button">🎨 <span>効果</span></button>
+            <button class="tab-btn" data-tab="tab3" type="button">⏱️ <span>タイマー</span></button>
             <button class="tab-btn" data-tab="tab4" type="button">📊 <span>投票</span></button>
             <button class="tab-btn" data-tab="tab5" type="button">📝 <span>メモ</span></button>
           </div>
