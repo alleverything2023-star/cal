@@ -1,6 +1,12 @@
 // ポモドーロタイマー機能
 // 3つのタイマーをそれぞれ独立してバックグラウンドで動かし、
 // 矢印(◁▷)とドットで「今どれを表示しているか」だけを切り替える。
+// スロット0・1(左・真ん中)は「共用」として全参加者とFirebase経由で連動し、
+// スロット2(右)は「個人用」としてこの端末だけで完結する。
+
+import { sendTimerState, listenTimerState } from "./room.js";
+
+const SHARED_SLOT_INDICES = [0, 1];
 
 const SLOT_COUNT = 3;
 const RING_RADIUS = 90;
@@ -18,6 +24,7 @@ function createDefaultSlotState() {
     completedFocusCount: 0,
     running: false,
     intervalId: null,
+    shared: false,
     settings: {
       focusMinutes: 25,
       breakMinutes: 5,
@@ -27,6 +34,59 @@ function createDefaultSlotState() {
     totalSeconds: focusMinutes * 60,
     remainingSeconds: focusMinutes * 60
   };
+}
+
+function serializeSlotState(slot) {
+  return {
+    mode: slot.mode,
+    totalSeconds: slot.totalSeconds,
+    remainingSeconds: slot.remainingSeconds,
+    running: slot.running,
+    updatedAt: Date.now(),
+    completedFocusCount: slot.completedFocusCount,
+    settings: slot.settings
+  };
+}
+
+function clearSlotInterval(slot) {
+  if (slot.intervalId) {
+    clearInterval(slot.intervalId);
+    slot.intervalId = null;
+  }
+}
+
+function broadcastIfShared(slotIndex) {
+  const slot = timerSlots[slotIndex];
+  if (slot && slot.shared) {
+    sendTimerState(slotIndex, serializeSlotState(slot));
+  }
+}
+
+// 他の参加者からの共用タイマー状態を、自分のローカル状態へ反映する
+function applyRemoteTimerState(slotIndex, data) {
+  const slot = timerSlots[slotIndex];
+  if (!slot) return;
+
+  clearSlotInterval(slot); // ブロードキャストはせず、ローカルのintervalだけ止める
+
+  slot.mode = data.mode;
+  slot.totalSeconds = data.totalSeconds;
+  slot.completedFocusCount = data.completedFocusCount || 0;
+  if (data.settings) slot.settings = data.settings;
+
+  // 送信時刻からの経過分を差し引いて、参加者間でずれないようにする
+  const elapsed = data.running ? (Date.now() - data.updatedAt) / 1000 : 0;
+  const remaining = Math.max(0, data.remainingSeconds - elapsed);
+  slot.remainingSeconds = remaining;
+
+  if (data.running && remaining > 0) {
+    slot.running = true;
+    slot.intervalId = setInterval(() => tick(slotIndex), 1000);
+  } else {
+    slot.running = false;
+  }
+
+  if (slotIndex === currentSlotIndex) renderTimerUI();
 }
 
 function getDurationForMode(slot, mode) {
@@ -78,6 +138,7 @@ function tick(slotIndex) {
       osc.start();
       setTimeout(() => { osc.stop(); audioCtx.close(); }, 200);
     } catch (e) {}
+    broadcastIfShared(slotIndex);
   }
 
   if (slotIndex === currentSlotIndex) {
@@ -90,30 +151,34 @@ function startTimer(slotIndex) {
   if (!slot || slot.running) return;
   slot.running = true;
   slot.intervalId = setInterval(() => tick(slotIndex), 1000);
+  broadcastIfShared(slotIndex);
 }
 
 function stopTimer(slotIndex) {
   const slot = timerSlots[slotIndex];
   if (!slot || !slot.running) return;
   slot.running = false;
-  clearInterval(slot.intervalId);
-  slot.intervalId = null;
+  clearSlotInterval(slot);
+  broadcastIfShared(slotIndex);
 }
 
 function resetTimer(slotIndex) {
   const slot = timerSlots[slotIndex];
   if (!slot) return;
-  stopTimer(slotIndex);
+  slot.running = false;
+  clearSlotInterval(slot);
   slot.mode = "focus";
   slot.completedFocusCount = 0;
   slot.totalSeconds = slot.settings.focusMinutes * 60;
   slot.remainingSeconds = slot.totalSeconds;
+  broadcastIfShared(slotIndex);
 }
 
 function renderTimerUI() {
   const slot = timerSlots[currentSlotIndex];
   if (!slot || !els.timeText) return;
 
+  els.scopeLabel.textContent = slot.shared ? "共用" : "個人用";
   els.timeText.textContent = formatTime(slot.remainingSeconds);
   els.phaseLabel.textContent = phaseLabel(slot.mode);
 
@@ -156,6 +221,7 @@ function applySettingChange(field, value) {
     }
   }
   renderTimerUI();
+  broadcastIfShared(currentSlotIndex);
 }
 
 export function initPomodoroTimers() {
@@ -163,6 +229,7 @@ export function initPomodoroTimers() {
     prevBtn: document.getElementById("timerPrevBtn"),
     nextBtn: document.getElementById("timerNextBtn"),
     dots: Array.from(document.querySelectorAll(".timer-dot")),
+    scopeLabel: document.getElementById("timerScopeLabel"),
     timeText: document.getElementById("timerTimeText"),
     phaseLabel: document.getElementById("timerPhaseLabel"),
     ringProgress: document.getElementById("timerRingProgress"),
@@ -176,7 +243,15 @@ export function initPomodoroTimers() {
 
   if (!els.timeText) return; // このページにタイマーUIが無ければ何もしない
 
-  timerSlots = Array.from({ length: SLOT_COUNT }, () => createDefaultSlotState());
+  timerSlots = Array.from({ length: SLOT_COUNT }, (_, i) => {
+    const slot = createDefaultSlotState();
+    slot.shared = SHARED_SLOT_INDICES.includes(i);
+    return slot;
+  });
+
+  SHARED_SLOT_INDICES.forEach((slotIndex) => {
+    listenTimerState(slotIndex, (data) => applyRemoteTimerState(slotIndex, data));
+  });
 
   els.ringProgress.style.strokeDasharray = `${RING_CIRCUMFERENCE}`;
   els.ringProgress.style.strokeDashoffset = "0";
