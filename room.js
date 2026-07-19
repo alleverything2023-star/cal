@@ -1,5 +1,5 @@
 import { db } from "./firebase.js";
-import { ref, set, push, onChildAdded, onValue, remove, onDisconnect, off } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+import { ref, set, update, push, onChildAdded, onValue, remove, onDisconnect, off } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
 
 export let myId = "user_" + Math.random().toString(36).substring(2, 9);
 export let roomParticipants = {};
@@ -32,7 +32,7 @@ function logError(actionName, err) {
   });
 }
 
-export async function joinRoom(name) {
+export async function joinRoom(name, camOn = true, micOn = true) {
   try {
     roomParticipants[myId] = { name: name };
     
@@ -42,7 +42,9 @@ export async function joinRoom(name) {
     // ⑤ 参加者データに joinedAt タイムスタンプを追加
     await set(myParticipantRef, { 
       name: name,
-      joinedAt: Date.now()
+      joinedAt: Date.now(),
+      camOn: camOn,
+      micOn: micOn
     });
     console.log(`${name} としてFirebaseの部屋に参加しました。ID: ${myId}`);
 
@@ -101,6 +103,9 @@ export function listenParticipants(callback) {
       for (const peerId in data) {
         if (!previousParticipants[peerId]) {
           callback(peerId, data[peerId]);
+        } else if (JSON.stringify(previousParticipants[peerId]) !== JSON.stringify(data[peerId])) {
+          // 既存参加者の情報更新（マイク/カメラのON-OFFなど）
+          callback(peerId, data[peerId]);
         }
       }
 
@@ -124,13 +129,21 @@ export async function updateMyName(newName) {
   if (roomParticipants[myId]) {
     try {
       const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
-      await set(myParticipantRef, { 
-        name: newName,
-        joinedAt: Date.now() 
-      });
+      // set()だとcamOn/micOnなど他のフィールドが消えてしまうため、update()で該当フィールドのみ変更する
+      await update(myParticipantRef, { name: newName });
     } catch (err) {
       logError("updateMyName", err);
     }
+  }
+}
+
+// マイク/カメラのON-OFF状態を他の参加者に共有する
+export async function updateMyMediaState(partialState) {
+  try {
+    const myParticipantRef = ref(db, `rooms/${roomId}/participants/${myId}`);
+    await update(myParticipantRef, partialState);
+  } catch (err) {
+    logError("updateMyMediaState", err);
   }
 }
 
