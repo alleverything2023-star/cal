@@ -622,6 +622,12 @@ select, input[type="text"] {
   font-weight: bold;
   font-variant-numeric: tabular-nums;
 }
+.timer-scope-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
 .timer-phase-label {
   font-size: 0.9rem;
   color: var(--text-muted);
