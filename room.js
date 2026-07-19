@@ -9,6 +9,7 @@ const participantsRef = ref(db, `rooms/${roomId}/participants`);
 const signalingRef = ref(db, `rooms/${roomId}/signaling/${myId}`);
 const chatRef = ref(db, `rooms/${roomId}/messages`); 
 const pdfRef = ref(db, `rooms/${roomId}/pdfData`); 
+const timersRef = ref(db, `rooms/${roomId}/timers`);
 
 let signalingListener = null;
 
@@ -57,6 +58,7 @@ export async function joinRoom(name, camOn = true, micOn = true) {
       const messagesUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/messages.json`;
       const pdfUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`;
       const drawingsUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/drawings/${roomId}.json`;
+      const timersUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/timers.json`;
 
       // sendBeaconは常にPOSTでしか送信できず、FirebaseのREST APIではPOSTは
       // 「新しい子要素の追加」を意味してしまうため削除には使えない。
@@ -67,6 +69,7 @@ export async function joinRoom(name, camOn = true, micOn = true) {
           fetch(messagesUrl, { method: "DELETE", keepalive: true });
           fetch(pdfUrl, { method: "DELETE", keepalive: true });
           fetch(drawingsUrl, { method: "DELETE", keepalive: true });
+          fetch(timersUrl, { method: "DELETE", keepalive: true });
         }
       } catch (err) {
         logError("leaveRoomData", err);
@@ -96,6 +99,7 @@ export function listenParticipants(callback) {
         await remove(chatRef);
         await remove(pdfRef);
         await remove(ref(db, `drawings/${roomId}`));
+        await remove(timersRef);
         console.log("部屋が空になったため、データを消去しました。");
       }
 
@@ -227,6 +231,31 @@ export function listenPdfData(callback) {
       }
     } catch (err) {
       logError("listenPdfData", err);
+    }
+  });
+}
+
+/**
+ * 共用ポモドーロタイマーの状態をFirebaseへ送信する
+ */
+export function sendTimerState(slotIndex, state) {
+  try {
+    set(ref(db, `rooms/${roomId}/timers/${slotIndex}`), state);
+  } catch (err) {
+    logError("sendTimerState", err);
+  }
+}
+
+/**
+ * 共用ポモドーロタイマーの状態変化をリッスンする
+ */
+export function listenTimerState(slotIndex, callback) {
+  onValue(ref(db, `rooms/${roomId}/timers/${slotIndex}`), (snapshot) => {
+    try {
+      const data = snapshot.val();
+      if (data) callback(data);
+    } catch (err) {
+      logError("listenTimerState", err);
     }
   });
 }
