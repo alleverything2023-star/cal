@@ -199,15 +199,15 @@ select, input[type="text"] {
   overflow: hidden;
   position: relative;
   box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-  aspect-ratio: 16/9;
   width: 100%;
   display: flex;
   flex-direction: column;
 }
 .video-wrapper {
-  flex: 1;
   position: relative;
   background: #000;
+  aspect-ratio: 16/9;
+  width: 100%;
 }
 .video-wrapper video {
   width: 100%;
@@ -636,5 +636,53 @@ select, input[type="text"] {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+  }
+}
+
+/* スマホ縦画面専用: PDF共有タブの操作性改善 */
+@media (max-width: 768px) and (orientation: portrait) {
+  .pdf-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px;
+  }
+  .pdf-page-nav,
+  .pdf-toolbar,
+  .draw-toolbar {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: center;
+    padding-bottom: 2px;
+  }
+  .pdf-controls-bar button {
+    min-width: 44px;
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  #pdfPageInput {
+    min-width: 48px;
+    padding: 8px;
+    font-size: 1rem;
+    text-align: center;
+  }
+  .draw-toolbar input[type="color"] {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+  .brush-size-container input[type="range"] {
+    width: 80px;
+  }
+  .top-controls button {
+    padding: 12px 8px;
+    font-size: 0.95rem;
+  }
+  .pdf-scroll-container {
+    padding: 6px;
   }
 }
