@@ -2,6 +2,7 @@ import { joinRoom, listenParticipants, myId, updateMyName, updateMyMediaState, s
 import { getLocalStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 import { loadAndRenderPdf, renderCurrentPage, changePage } from "./pdf.js";
+import { initPomodoroTimers } from "./pomodoro.js";
 
 const DEVELOPER_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8"; 
 const CLIENT_ID = "421359626063-r6e12ki8834lsvp2kcqevqf3g2h64kd7.apps.googleusercontent.com";
@@ -67,6 +68,7 @@ tabButtons.forEach(btn => {
 
 (async function init() {
   loadGapiAndGsi();
+  initPomodoroTimers();
   try {
     // 権限要求なしで一覧取得のみ（ユーザー操作を伴わないgetUserMedia呼び出しを避ける）
     await updateDeviceList(false);
