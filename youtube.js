@@ -368,7 +368,18 @@ async function performSearch(query) {
 
     if (!res.ok) {
       console.error("YouTube検索エラー", data);
-      if (searchResultsEl) searchResultsEl.innerHTML = `<div class="yt-search-error">検索に失敗しました（APIキーの設定をご確認ください）</div>`;
+      const reason = data && data.error && data.error.errors && data.error.errors[0] && data.error.errors[0].reason;
+      let message = "検索に失敗しました（APIキーの設定をご確認ください）";
+      if (reason === "quotaExceeded" || reason === "dailyLimitExceeded") {
+        message = "検索に失敗しました（Google Cloud側のAPIクォータ上限に達しています）";
+      } else if (reason === "accessNotConfigured" || reason === "forbidden") {
+        message = "検索に失敗しました（YouTube Data API v3が有効化されていないか、アクセスが許可されていません）";
+      } else if (reason === "keyInvalid" || reason === "badRequest") {
+        message = "検索に失敗しました（APIキーが無効か、設定に誤りがあります）";
+      } else if (reason === "ipRefererBlocked" || reason === "refererNotAllowed") {
+        message = "検索に失敗しました（APIキーのHTTPリファラー制限で、このサイトからのアクセスが許可されていません）";
+      }
+      if (searchResultsEl) searchResultsEl.innerHTML = `<div class="yt-search-error">${escapeHtml(message)}</div>`;
       return;
     }
 
