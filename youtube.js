@@ -2,7 +2,7 @@ import { myId, shareYoutubeVideo, updateYoutubeState, stopYoutubeShare, listenYo
 
 // ※ Google Cloud の同一プロジェクトのAPIキーを再利用しています。
 // このキーに対して「YouTube Data API v3」を有効化しないと検索は動作しません。
-const YOUTUBE_API_KEY = "AIzaSyCYJ-LkqWiTLlH-M8IICl6SGLC-OmJmg_8";
+const YOUTUBE_API_KEY = "AIzaSyBDbYUZ_PHXnMQPwaIABfYToc2y6YbWwRI";
 
 // YouTube Data API v3 のデフォルト割当(1日10,000ユニット)を、検索1回=100ユニットで割った目安値
 const DAILY_SEARCH_LIMIT = 100;
