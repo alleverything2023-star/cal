@@ -257,7 +257,37 @@
               </div>
             </div>
             <div id="tabContent-tab4" class="tab-content">
-              <div class="tab-placeholder">📊 アンケート機能（開発中）</div>
+              <div class="youtube-container-root">
+                <div class="yt-video-display-area" id="youtubeVideoDisplayArea">
+                  <div class="yt-player-mount" id="youtubePlayerWrapper">
+                    <div id="youtubePlayerMount"></div>
+                  </div>
+                  <div class="yt-no-video-label" id="youtubeNoVideoLabel">動画が選択されていません</div>
+                </div>
+
+                <div class="yt-input-row">
+                  <input type="text" id="youtubeLinkInput" placeholder="YouTubeのURLを貼り付け" autocomplete="off" spellcheck="false" enterkeyhint="done">
+                  <button id="youtubeLoadLinkBtn" type="button">読込</button>
+                </div>
+
+                <div class="yt-search-row">
+                  <input type="text" id="youtubeSearchInput" placeholder="動画を検索..." autocomplete="off" spellcheck="false" enterkeyhint="search">
+                  <button id="youtubeSearchBtn" type="button">🔍</button>
+                </div>
+                <div class="yt-search-meta-row">
+                  <span id="youtubeQuotaLabel" class="yt-quota-label">本日の検索: あと100回</span>
+
+                  <div class="yt-share-row" id="youtubeShareRow">
+                    <span class="yt-share-label">共有</span>
+                    <button id="youtubeShareToggleBtn" class="yt-toggle-btn" type="button" role="switch" aria-checked="false">
+                      <span class="yt-toggle-knob"></span>
+                    </button>
+                    <span id="youtubeShareStatusText" class="yt-share-status">オフ（自分だけ）</span>
+                  </div>
+                </div>
+
+                <div class="yt-search-results" id="youtubeSearchResults"></div>
+              </div>
             </div>
             <div id="tabContent-tab5" class="tab-content">
               <div class="tab-placeholder">📝 共有メモ（開発中）</div>
@@ -271,7 +301,7 @@
             </button>
             <button class="tab-btn" data-tab="pdf" type="button">📄 <span>PDF共有</span></button>
             <button class="tab-btn" data-tab="tab3" type="button">⏱️ <span>タイマー</span></button>
-            <button class="tab-btn" data-tab="tab4" type="button">📊 <span>投票</span></button>
+            <button class="tab-btn" data-tab="tab4" type="button">📺 <span>YouTube</span></button>
             <button class="tab-btn" data-tab="tab5" type="button">📝 <span>メモ</span></button>
           </div>
         </div>
