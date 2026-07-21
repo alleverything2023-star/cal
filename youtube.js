@@ -88,7 +88,6 @@ function destroyGridPlayer() {
     try { ytGridPlayer.destroy(); } catch (e) {}
   }
   ytGridPlayer = null;
-  gridVideoId = null;
 }
 
 function rebuildGridCard() {
@@ -138,6 +137,7 @@ async function ensureGridPlayer(videoId) {
 
 function teardownGridShare() {
   destroyGridPlayer();
+  gridVideoId = null;
   const card = document.getElementById("card-youtube");
   if (card) {
     card.remove();
@@ -447,7 +447,6 @@ export function initYoutubeFeature() {
           return;
         }
         selectVideo(videoId);
-        linkInput.value = "";
       });
     }
     if (linkInput) {
@@ -489,6 +488,9 @@ export function initYoutubeFeature() {
         showSharingPlaceholderInTab();
 
         if (isNewSession) {
+          // 先にgridVideoIdを確定させておく。ensureGridPlayer()の完了(非同期)を待つ前に
+          // 短時間で複数回コールバックが発火しても、二重に作り直さないようにするため。
+          gridVideoId = data.videoId;
           rebuildGridCard();
           await ensureGridPlayer(data.videoId);
         }
