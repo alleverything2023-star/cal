@@ -373,73 +373,81 @@ function startHeartbeat() {
    初期化
    ======================================================== */
 export function initYoutubeFeature() {
-  linkInput = document.getElementById("youtubeLinkInput");
-  loadLinkBtn = document.getElementById("youtubeLoadLinkBtn");
-  searchInput = document.getElementById("youtubeSearchInput");
-  searchBtn = document.getElementById("youtubeSearchBtn");
-  quotaLabelEl = document.getElementById("youtubeQuotaLabel");
-  searchResultsEl = document.getElementById("youtubeSearchResults");
-  shareToggleBtn = document.getElementById("youtubeShareToggleBtn");
-  shareStatusText = document.getElementById("youtubeShareStatusText");
-  noVideoLabel = document.getElementById("youtubeNoVideoLabel");
+  try {
+    linkInput = document.getElementById("youtubeLinkInput");
+    loadLinkBtn = document.getElementById("youtubeLoadLinkBtn");
+    searchInput = document.getElementById("youtubeSearchInput");
+    searchBtn = document.getElementById("youtubeSearchBtn");
+    quotaLabelEl = document.getElementById("youtubeQuotaLabel");
+    searchResultsEl = document.getElementById("youtubeSearchResults");
+    shareToggleBtn = document.getElementById("youtubeShareToggleBtn");
+    shareStatusText = document.getElementById("youtubeShareStatusText");
+    noVideoLabel = document.getElementById("youtubeNoVideoLabel");
 
-  updateQuotaLabel();
+    updateQuotaLabel();
 
-  if (loadLinkBtn) {
-    loadLinkBtn.addEventListener("click", () => {
-      if (!linkInput) return;
-      const raw = linkInput.value.trim();
-      if (!raw) return;
-      const videoId = extractVideoId(raw);
-      if (!videoId) {
-        alert("YouTubeのURLを正しく認識できませんでした");
-        return;
-      }
-      selectVideo(videoId);
-      linkInput.value = "";
-    });
-  }
-  if (linkInput) {
-    linkInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.isComposing) loadLinkBtn.click();
-    });
-  }
-
-  if (searchBtn) {
-    searchBtn.addEventListener("click", () => performSearch(searchInput ? searchInput.value : ""));
-  }
-  if (searchInput) {
-    searchInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.isComposing) performSearch(searchInput.value);
-    });
-  }
-
-  if (shareToggleBtn) {
-    shareToggleBtn.addEventListener("click", handleShareToggleClick);
-  }
-
-  listenYoutubeData(async (data) => {
-    if (!data) {
-      isSharing = false;
-      latestRemoteState = null;
-      updateShareToggleUI(false);
-      movePlayerBackToTab();
-      if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
-        suppressSync = true;
-        try { ytPlayer.pauseVideo(); } catch (e) {}
-        setTimeout(() => { suppressSync = false; }, 300);
-      }
-      return;
+    if (loadLinkBtn) {
+      loadLinkBtn.addEventListener("click", () => {
+        if (!linkInput) return;
+        const raw = linkInput.value.trim();
+        if (!raw) return;
+        const videoId = extractVideoId(raw);
+        if (!videoId) {
+          alert("YouTubeのURLを正しく認識できませんでした");
+          return;
+        }
+        selectVideo(videoId);
+        linkInput.value = "";
+      });
+    }
+    if (linkInput) {
+      linkInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.isComposing) loadLinkBtn.click();
+      });
     }
 
-    latestRemoteState = data;
-    isSharing = true;
-    updateShareToggleUI(true);
+    if (searchBtn) {
+      searchBtn.addEventListener("click", () => performSearch(searchInput ? searchInput.value : ""));
+    }
+    if (searchInput) {
+      searchInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.isComposing) performSearch(searchInput.value);
+      });
+    }
 
-    await ensurePlayer(data.videoId);
-    movePlayerIntoGrid();
-    applyRemoteState(data);
-  });
+    if (shareToggleBtn) {
+      shareToggleBtn.addEventListener("click", handleShareToggleClick);
+    }
 
-  startHeartbeat();
+    listenYoutubeData(async (data) => {
+      try {
+        if (!data) {
+          isSharing = false;
+          latestRemoteState = null;
+          updateShareToggleUI(false);
+          movePlayerBackToTab();
+          if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
+            suppressSync = true;
+            try { ytPlayer.pauseVideo(); } catch (e) {}
+            setTimeout(() => { suppressSync = false; }, 300);
+          }
+          return;
+        }
+
+        latestRemoteState = data;
+        isSharing = true;
+        updateShareToggleUI(true);
+
+        await ensurePlayer(data.videoId);
+        movePlayerIntoGrid();
+        applyRemoteState(data);
+      } catch (err) {
+        console.error("YouTube共有データの反映に失敗しました", err);
+      }
+    });
+
+    startHeartbeat();
+  } catch (err) {
+    console.error("YouTube機能のセットアップに失敗しました", err);
+  }
 }
