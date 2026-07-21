@@ -10,12 +10,18 @@ const QUOTA_STORAGE_KEY = "ytSearchQuotaState";
 
 // DOM参照（initYoutubeFeature内で取得）
 let linkInput, loadLinkBtn, searchInput, searchBtn, quotaLabelEl, searchResultsEl;
-let shareToggleBtn, shareStatusText, noVideoLabel;
+let shareToggleBtn, shareStatusText, noVideoLabel, sharingPlaceholderEl;
 
 // プレイヤー・同期関連の状態
+// ※タブ内プレビュー用（ytPlayer）とグリッド共有表示用（ytGridPlayer）は
+//   完全に別インスタンスとして扱う。DOM間で同じiframeを移動(reparent)すると
+//   Safari/iPadOSや一部のタブレット・Androidブラウザでiframeが強制リロードされ、
+//   再読み込み失敗や他端末でのプレイヤーエラー表示の原因になるため。
 let ytApiReadyPromise = null;
-let ytPlayer = null;
-let currentVideoId = null;
+let ytPlayer = null;          // タブ内プレビュー用（常に同じ場所にマウントしたまま使い回す）
+let ytGridPlayer = null;      // グリッド共有表示用（共有開始のたびに作り直す）
+let currentVideoId = null;    // タブ側で選択中の動画ID
+let gridVideoId = null;       // グリッド側で現在再生中の動画ID
 let isSharing = false;
 let suppressSync = false;
 let latestRemoteState = null;
@@ -45,7 +51,7 @@ function loadYoutubeIframeApi() {
 }
 
 /* ========================================================
-   プレイヤーの生成・動画差し替え
+   タブ内プレビュー用プレイヤーの生成・動画差し替え
    ======================================================== */
 async function ensurePlayer(videoId) {
   await loadYoutubeIframeApi();
@@ -66,21 +72,88 @@ async function ensurePlayer(videoId) {
         onReady: () => {
           currentVideoId = videoId;
           resolve(ytPlayer);
-        },
-        onStateChange: handlePlayerStateChange
+        }
       }
     });
   });
 }
 
-function handlePlayerStateChange(event) {
+/* ========================================================
+   グリッド共有用プレイヤーの生成・破棄
+   ※ 同じiframeを使い回さず、共有セッションが変わるたびに
+     破棄してから新しく作り直す（古い状態を引きずらないため）
+   ======================================================== */
+function destroyGridPlayer() {
+  if (ytGridPlayer && typeof ytGridPlayer.destroy === "function") {
+    try { ytGridPlayer.destroy(); } catch (e) {}
+  }
+  ytGridPlayer = null;
+  gridVideoId = null;
+}
+
+function rebuildGridCard() {
+  destroyGridPlayer();
+
+  const grid = document.getElementById("videoGrid");
+  if (!grid) return;
+
+  const old = document.getElementById("card-youtube");
+  if (old) old.remove();
+
+  const card = document.createElement("div");
+  card.className = "videoCard";
+  card.id = "card-youtube";
+  card.innerHTML = `
+    <div class="video-wrapper">
+      <div id="youtubeGridPlayerMount"></div>
+    </div>
+    <div class="videoControlBar">
+      <span class="videoName">📺 YouTube（共有中）</span>
+    </div>
+  `;
+  grid.appendChild(card);
+  updateGridCountClass();
+}
+
+async function ensureGridPlayer(videoId) {
+  await loadYoutubeIframeApi();
+
+  const mount = document.getElementById("youtubeGridPlayerMount");
+  if (!mount) return null;
+
+  return new Promise((resolve) => {
+    ytGridPlayer = new YT.Player(mount, {
+      videoId: videoId,
+      playerVars: { playsinline: 1, rel: 0 },
+      events: {
+        onReady: () => {
+          gridVideoId = videoId;
+          resolve(ytGridPlayer);
+        },
+        onStateChange: handleGridPlayerStateChange
+      }
+    });
+  });
+}
+
+function teardownGridShare() {
+  destroyGridPlayer();
+  const card = document.getElementById("card-youtube");
+  if (card) {
+    card.remove();
+    updateGridCountClass();
+  }
+  hideSharingPlaceholderInTab();
+}
+
+function handleGridPlayerStateChange(event) {
   if (suppressSync) return;
-  if (!isSharing) return; // 共有していない間はローカルプレビューのみで同期は行わない
+  if (!isSharing) return;
 
   const state = event.data;
   if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.PAUSED) {
     let time = 0;
-    try { time = ytPlayer.getCurrentTime(); } catch (e) {}
+    try { time = ytGridPlayer.getCurrentTime(); } catch (e) {}
     updateYoutubeState({
       playing: state === YT.PlayerState.PLAYING,
       time: time
@@ -89,7 +162,7 @@ function handlePlayerStateChange(event) {
 }
 
 /* ========================================================
-   動画エリアの表示場所切り替え（タブ内 ⇔ ビデオグリッド内）
+   ビデオグリッドの列数クラス更新
    ======================================================== */
 function updateGridCountClass() {
   const grid = document.getElementById("videoGrid");
@@ -103,45 +176,20 @@ function updateGridCountClass() {
   else grid.classList.add("count-many");
 }
 
-function movePlayerIntoGrid() {
-  const grid = document.getElementById("videoGrid");
-  const wrapper = document.getElementById("youtubePlayerWrapper");
-  if (!grid || !wrapper) return;
-
-  let card = document.getElementById("card-youtube");
-  if (!card) {
-    card = document.createElement("div");
-    card.className = "videoCard";
-    card.id = "card-youtube";
-    card.innerHTML = `
-      <div class="video-wrapper" id="youtubeGridWrapper"></div>
-      <div class="videoControlBar">
-        <span class="videoName">📺 YouTube（共有中）</span>
-      </div>
-    `;
-    grid.appendChild(card);
-    updateGridCountClass();
-  }
-
-  const gridWrapper = document.getElementById("youtubeGridWrapper");
-  if (gridWrapper && wrapper.parentElement !== gridWrapper) {
-    gridWrapper.appendChild(wrapper);
-  }
+/* ========================================================
+   タブ側表示の切り替え（共有中プレースホルダー ⇔ 通常プレビュー）
+   共有中は音声が二重に流れないよう、タブ側プレイヤーは一時停止して隠す
+   ======================================================== */
+function showSharingPlaceholderInTab() {
+  if (sharingPlaceholderEl) sharingPlaceholderEl.style.display = "flex";
   if (noVideoLabel) noVideoLabel.style.display = "none";
+  if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
+    try { ytPlayer.pauseVideo(); } catch (e) {}
+  }
 }
 
-function movePlayerBackToTab() {
-  const card = document.getElementById("card-youtube");
-  if (card) {
-    card.remove();
-    updateGridCountClass();
-  }
-
-  const displayArea = document.getElementById("youtubeVideoDisplayArea");
-  const wrapper = document.getElementById("youtubePlayerWrapper");
-  if (displayArea && wrapper && wrapper.parentElement !== displayArea) {
-    displayArea.insertBefore(wrapper, displayArea.firstChild);
-  }
+function hideSharingPlaceholderInTab() {
+  if (sharingPlaceholderEl) sharingPlaceholderEl.style.display = "none";
   if (noVideoLabel) noVideoLabel.style.display = currentVideoId ? "none" : "flex";
 }
 
@@ -160,26 +208,27 @@ function updateShareToggleUI(on) {
 
 /* ========================================================
    リモート状態への追従（再生位置・再生/一時停止の同期）
+   ※グリッド共有用プレイヤーに対して適用する
    ======================================================== */
 function applyRemoteState(data) {
-  if (!ytPlayer || typeof ytPlayer.getPlayerState !== "function") return;
+  if (!ytGridPlayer || typeof ytGridPlayer.getPlayerState !== "function") return;
 
   const elapsedSinceUpdate = data.playing ? (Date.now() - (data.updatedAt || Date.now())) / 1000 : 0;
   const targetTime = Math.max(0, (data.time || 0) + elapsedSinceUpdate);
 
   let current = 0;
-  try { current = ytPlayer.getCurrentTime(); } catch (e) {}
+  try { current = ytGridPlayer.getCurrentTime(); } catch (e) {}
   const drift = Math.abs(current - targetTime);
 
   suppressSync = true;
   try {
     if (drift > 1.5) {
-      ytPlayer.seekTo(targetTime, true);
+      ytGridPlayer.seekTo(targetTime, true);
     }
     if (data.playing) {
-      ytPlayer.playVideo();
+      ytGridPlayer.playVideo();
     } else {
-      ytPlayer.pauseVideo();
+      ytGridPlayer.pauseVideo();
     }
   } catch (e) {
     console.error("YouTube再生状態の同期に失敗しました", e);
@@ -194,7 +243,7 @@ async function selectVideo(videoId) {
   if (!videoId) return;
   currentVideoId = videoId;
   await ensurePlayer(videoId);
-  if (noVideoLabel) noVideoLabel.style.display = "none";
+  if (!isSharing && noVideoLabel) noVideoLabel.style.display = "none";
 
   // 共有中に動画を変更した場合は、共有内容も新しい動画に差し替える
   if (isSharing) {
@@ -358,13 +407,13 @@ async function handleShareToggleClick() {
    ======================================================== */
 function startHeartbeat() {
   setInterval(() => {
-    if (!isSharing || !ytPlayer || !latestRemoteState) return;
+    if (!isSharing || !ytGridPlayer || !latestRemoteState) return;
     if (latestRemoteState.senderId !== myId) return; // 共有開始者だけが補正を送る
-    if (typeof ytPlayer.getPlayerState !== "function") return;
-    if (ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) return;
+    if (typeof ytGridPlayer.getPlayerState !== "function") return;
+    if (ytGridPlayer.getPlayerState() !== YT.PlayerState.PLAYING) return;
 
     let time = 0;
-    try { time = ytPlayer.getCurrentTime(); } catch (e) { return; }
+    try { time = ytGridPlayer.getCurrentTime(); } catch (e) { return; }
     updateYoutubeState({ playing: true, time: time });
   }, 4000);
 }
@@ -383,6 +432,7 @@ export function initYoutubeFeature() {
     shareToggleBtn = document.getElementById("youtubeShareToggleBtn");
     shareStatusText = document.getElementById("youtubeShareStatusText");
     noVideoLabel = document.getElementById("youtubeNoVideoLabel");
+    sharingPlaceholderEl = document.getElementById("youtubeSharingPlaceholder");
 
     updateQuotaLabel();
 
@@ -425,21 +475,24 @@ export function initYoutubeFeature() {
           isSharing = false;
           latestRemoteState = null;
           updateShareToggleUI(false);
-          movePlayerBackToTab();
-          if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
-            suppressSync = true;
-            try { ytPlayer.pauseVideo(); } catch (e) {}
-            setTimeout(() => { suppressSync = false; }, 300);
-          }
+          teardownGridShare();
           return;
         }
+
+        // 新しい共有セッションの開始か、共有中に動画が差し替わった場合のみ
+        // グリッド側プレイヤーを破棄して作り直す（継続中の再生/一時停止/シークだけなら作り直さない）
+        const isNewSession = !isSharing || gridVideoId !== data.videoId;
 
         latestRemoteState = data;
         isSharing = true;
         updateShareToggleUI(true);
+        showSharingPlaceholderInTab();
 
-        await ensurePlayer(data.videoId);
-        movePlayerIntoGrid();
+        if (isNewSession) {
+          rebuildGridCard();
+          await ensureGridPlayer(data.videoId);
+        }
+
         applyRemoteState(data);
       } catch (err) {
         console.error("YouTube共有データの反映に失敗しました", err);
