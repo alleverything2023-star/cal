@@ -369,6 +369,7 @@ async function performSearch(query) {
     if (!res.ok) {
       console.error("YouTube検索エラー", data);
       const reason = data && data.error && data.error.errors && data.error.errors[0] && data.error.errors[0].reason;
+      const rawMessage = (data && data.error && data.error.message) || "";
       let message = "検索に失敗しました（APIキーの設定をご確認ください）";
       if (reason === "quotaExceeded" || reason === "dailyLimitExceeded") {
         message = "検索に失敗しました（Google Cloud側のAPIクォータ上限に達しています）";
@@ -379,14 +380,24 @@ async function performSearch(query) {
       } else if (reason === "ipRefererBlocked" || reason === "refererNotAllowed") {
         message = "検索に失敗しました（APIキーのHTTPリファラー制限で、このサイトからのアクセスが許可されていません）";
       }
-      if (searchResultsEl) searchResultsEl.innerHTML = `<div class="yt-search-error">${escapeHtml(message)}</div>`;
+      if (searchResultsEl) {
+        searchResultsEl.innerHTML = `
+          <div class="yt-search-error">${escapeHtml(message)}</div>
+          <div class="yt-search-error-detail">status: ${res.status}${reason ? " / reason: " + escapeHtml(reason) : ""}${rawMessage ? "<br>" + escapeHtml(rawMessage) : ""}</div>
+        `;
+      }
       return;
     }
 
     renderSearchResults(data.items || []);
   } catch (err) {
     console.error(err);
-    if (searchResultsEl) searchResultsEl.innerHTML = `<div class="yt-search-error">検索中にエラーが発生しました</div>`;
+    if (searchResultsEl) {
+      searchResultsEl.innerHTML = `
+        <div class="yt-search-error">検索中にエラーが発生しました</div>
+        <div class="yt-search-error-detail">${escapeHtml((err && err.message) || String(err))}</div>
+      `;
+    }
   }
 }
 
