@@ -10,6 +10,7 @@ const signalingRef = ref(db, `rooms/${roomId}/signaling/${myId}`);
 const chatRef = ref(db, `rooms/${roomId}/messages`); 
 const pdfRef = ref(db, `rooms/${roomId}/pdfData`); 
 const timersRef = ref(db, `rooms/${roomId}/timers`);
+const youtubeRef = ref(db, `rooms/${roomId}/youtube`);
 
 let signalingListener = null;
 
@@ -59,6 +60,7 @@ export async function joinRoom(name, camOn = true, micOn = true) {
       const pdfUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/pdfData.json`;
       const drawingsUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/drawings/${roomId}.json`;
       const timersUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/timers.json`;
+      const youtubeUrl = `https://call-a9823-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${roomId}/youtube.json`;
 
       // sendBeaconは常にPOSTでしか送信できず、FirebaseのREST APIではPOSTは
       // 「新しい子要素の追加」を意味してしまうため削除には使えない。
@@ -70,6 +72,7 @@ export async function joinRoom(name, camOn = true, micOn = true) {
           fetch(pdfUrl, { method: "DELETE", keepalive: true });
           fetch(drawingsUrl, { method: "DELETE", keepalive: true });
           fetch(timersUrl, { method: "DELETE", keepalive: true });
+          fetch(youtubeUrl, { method: "DELETE", keepalive: true });
         }
       } catch (err) {
         logError("leaveRoomData", err);
@@ -100,6 +103,7 @@ export function listenParticipants(callback) {
         await remove(pdfRef);
         await remove(ref(db, `drawings/${roomId}`));
         await remove(timersRef);
+        await remove(youtubeRef);
         console.log("部屋が空になったため、データを消去しました。");
       }
 
@@ -328,6 +332,66 @@ export function sendSignalingMessage(targetPeerId, payload) {
   } catch (err) {
     logError("sendSignalingMessage", err);
   }
+}
+
+/**
+ * YouTube動画の共有を開始する（現在の再生位置・再生状態も一緒に送る）
+ */
+export async function shareYoutubeVideo(videoId, initialTime = 0, initialPlaying = true) {
+  try {
+    await set(youtubeRef, {
+      videoId: videoId,
+      playing: initialPlaying,
+      time: initialTime,
+      senderId: myId,
+      updatedAt: Date.now()
+    });
+  } catch (err) {
+    logError("shareYoutubeVideo", err);
+  }
+}
+
+/**
+ * 再生/一時停止・再生位置など、共有中のYouTube再生状態を更新する
+ */
+export async function updateYoutubeState(partialState) {
+  try {
+    await update(youtubeRef, { ...partialState, updatedAt: Date.now() });
+  } catch (err) {
+    logError("updateYoutubeState", err);
+  }
+}
+
+/**
+ * YouTubeの共有を停止する（全員の画面からグリッド表示が消える）
+ */
+export async function stopYoutubeShare() {
+  try {
+    await remove(youtubeRef);
+  } catch (err) {
+    logError("stopYoutubeShare", err);
+  }
+}
+
+// YouTube共有データの変更検知用の前回状態記録変数
+let previousYoutubeDataStr = null;
+
+/**
+ * YouTube共有データの変更をリッスンする（共有停止時はnullでコールバックされる）
+ */
+export function listenYoutubeData(callback) {
+  onValue(youtubeRef, (snapshot) => {
+    try {
+      const data = snapshot.val() || null;
+      const currentDataStr = JSON.stringify(data);
+      if (currentDataStr !== previousYoutubeDataStr) {
+        previousYoutubeDataStr = currentDataStr;
+        callback(data);
+      }
+    } catch (err) {
+      logError("listenYoutubeData", err);
+    }
+  });
 }
 
 // ②, ⑩, ⑯ 非同期コールバック完了後の削除および古いメッセージのフィルタリング
