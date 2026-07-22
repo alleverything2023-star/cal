@@ -7,6 +7,34 @@ let onRemoteStreamRef = null;
 // ピアごとの Perfect Negotiation 状態管理用オブジェクト
 const connectionStates = {};
 
+// 通話音声(Opus)は既定だと低めのビットレートに抑えられ、声がこもって聞こえやすい。
+// SDP内のOpus用fmtp行にmaxaveragebitrateを追加し、音質を上げる。
+function increaseAudioQuality(sdp) {
+  try {
+    const lines = sdp.split("\r\n");
+    let opusPayloadType = null;
+
+    for (const line of lines) {
+      const match = line.match(/^a=rtpmap:(\d+) opus\/48000/i);
+      if (match) {
+        opusPayloadType = match[1];
+        break;
+      }
+    }
+    if (!opusPayloadType) return sdp;
+
+    return lines.map(line => {
+      if (line.startsWith(`a=fmtp:${opusPayloadType} `) && !/maxaveragebitrate=/.test(line)) {
+        return `${line};maxaveragebitrate=128000;useinbandfec=1`;
+      }
+      return line;
+    }).join("\r\n");
+  } catch (e) {
+    console.warn("音声品質(Opusビットレート)の調整に失敗しました", e);
+    return sdp;
+  }
+}
+
 // アプリ起動時にシグナリングの受信待機を自動開始
 listenSignalingMessage((fromPeerId, signalingData) => {
   handleSignalingMessage(fromPeerId, signalingData);
@@ -58,6 +86,7 @@ export function startP2P(peerId, localStream, onRemoteStream) {
       }
       state.makingOffer = true;
       const offer = await pc.createOffer();
+      offer.sdp = increaseAudioQuality(offer.sdp);
       await pc.setLocalDescription(offer);
       sendSignalingMessage(peerId, { type: "offer", sdp: pc.localDescription.sdp });
     } catch (err) {
@@ -139,6 +168,7 @@ async function handleSignalingMessage(fromPeerId, data) {
       state.isSettingRemoteAnswerPending = false;
       await pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: data.sdp }));
       const answer = await pc.createAnswer();
+      answer.sdp = increaseAudioQuality(answer.sdp);
       await pc.setLocalDescription(answer);
       sendSignalingMessage(fromPeerId, { type: "answer", sdp: pc.localDescription.sdp });
 
