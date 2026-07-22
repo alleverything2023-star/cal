@@ -1,11 +1,20 @@
 export async function getLocalStream(cameraId = null, micId = null) {
+  // ノイズ抑制(noiseSuppression)と自動音量調整(autoGainControl)はブラウザ既定でON。
+  // これがかなり強めにかかるため、声が「篭る」原因になりやすい。
+  // ハウリング防止に必要なエコーキャンセル(echoCancellation)だけは有効にしたまま、
+  // 音質に影響が大きい2つはOFFにする。
+  const audioConstraints = {
+    echoCancellation: true,
+    noiseSuppression: false,
+    autoGainControl: false
+  };
+  if (micId) audioConstraints.deviceId = { exact: micId };
+
   const constraints = {
     video: cameraId
       ? { deviceId: { exact: cameraId } }
       : true,
-    audio: micId
-      ? { deviceId: { exact: micId } }
-      : true
+    audio: audioConstraints
   };
 
   return navigator.mediaDevices.getUserMedia(constraints);
