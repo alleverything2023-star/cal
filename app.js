@@ -1,5 +1,5 @@
 import { joinRoom, listenParticipants, myId, updateMyName, updateMyMediaState, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData } from "./room.js";
-import { getLocalStream, updateDeviceList } from "./devices.js";
+import { getLocalStream, getAudioOnlyStream, updateDeviceList } from "./devices.js";
 import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
 import { loadAndRenderPdf, renderCurrentPage, changePage } from "./pdf.js";
 import { initPomodoroTimers } from "./pomodoro.js";
@@ -16,6 +16,13 @@ let localStream = null;
 let isJoined = false;
 let currentUserName = "あなた";
 
+// イヤホン・ヘッドホン使用中フラグ（前回の選択を次回も引き継ぐ）
+const HEADPHONE_STORAGE_KEY = "usingHeadphones";
+let usingHeadphones = false;
+try {
+  usingHeadphones = localStorage.getItem(HEADPHONE_STORAGE_KEY) === "1";
+} catch (e) {}
+
 const joinScreen = document.getElementById("joinScreen");
 const roomScreen = document.getElementById("roomScreen");
 const myPreviewVideo = document.getElementById("myPreviewVideo");
@@ -23,6 +30,8 @@ const cameraSelect = document.getElementById("cameraSelect");
 const micSelect = document.getElementById("micSelect");
 const initCameraToggle = document.getElementById("initCameraToggle");
 const initMicToggle = document.getElementById("initMicToggle");
+const initHeadphoneToggle = document.getElementById("initHeadphoneToggle");
+const modalHeadphoneToggle = document.getElementById("modalHeadphoneToggle");
 const nameInput = document.getElementById("nameInput");
 const joinButton = document.getElementById("joinButton");
 const myLocalVideo = document.getElementById("myLocalVideo");
@@ -50,6 +59,9 @@ const settingsModal = document.getElementById("settingsModal");
 const modalNameInput = document.getElementById("modalNameInput");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+
+if (initHeadphoneToggle) initHeadphoneToggle.checked = usingHeadphones;
+if (modalHeadphoneToggle) modalHeadphoneToggle.checked = usingHeadphones;
 
 // タブ切り替え制御
 const tabButtons = document.querySelectorAll(".tab-btn");
@@ -91,7 +103,8 @@ async function updatePreview() {
     }
     localStream = await getLocalStream(
       cameraSelect.value || null,
-      micSelect.value || null
+      micSelect.value || null,
+      !usingHeadphones
     );
     if (myPreviewVideo) {
       myPreviewVideo.srcObject = localStream;
@@ -108,6 +121,59 @@ if (cameraSelect) cameraSelect.addEventListener("change", updatePreview);
 if (micSelect) micSelect.addEventListener("change", updatePreview);
 if (initCameraToggle) initCameraToggle.addEventListener("change", updatePreview);
 if (initMicToggle) initMicToggle.addEventListener("change", updatePreview);
+
+// イヤホン・ヘッドホン使用中トグル（参加前後どちらでも切替可能。2箇所を相互に同期する）
+function setUsingHeadphones(value) {
+  usingHeadphones = !!value;
+  if (initHeadphoneToggle) initHeadphoneToggle.checked = usingHeadphones;
+  if (modalHeadphoneToggle) modalHeadphoneToggle.checked = usingHeadphones;
+  try { localStorage.setItem(HEADPHONE_STORAGE_KEY, usingHeadphones ? "1" : "0"); } catch (e) {}
+}
+
+async function applyHeadphoneSetting() {
+  if (!isJoined || !localStream) {
+    // 参加前はプレビューを取り直すだけでよい
+    updatePreview();
+    return;
+  }
+
+  // 通話中の場合は、音声トラックだけを新しい設定で取り直し、
+  // 既存の全PeerConnectionのトラックを差し替える（再接続なしで反映）
+  try {
+    const newAudioStream = await getAudioOnlyStream(micSelect.value || null, !usingHeadphones);
+    const newAudioTrack = newAudioStream.getAudioTracks()[0];
+    if (!newAudioTrack) return;
+
+    const oldAudioTrack = localStream.getAudioTracks()[0];
+    newAudioTrack.enabled = oldAudioTrack ? oldAudioTrack.enabled : true;
+
+    Object.values(peerConnections).forEach(pc => {
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === "audio");
+      if (sender) sender.replaceTrack(newAudioTrack);
+    });
+
+    if (oldAudioTrack) {
+      localStream.removeTrack(oldAudioTrack);
+      oldAudioTrack.stop();
+    }
+    localStream.addTrack(newAudioTrack);
+  } catch (e) {
+    console.error("イヤホン設定の切り替えに失敗しました", e);
+  }
+}
+
+if (initHeadphoneToggle) {
+  initHeadphoneToggle.addEventListener("change", () => {
+    setUsingHeadphones(initHeadphoneToggle.checked);
+    applyHeadphoneSetting();
+  });
+}
+if (modalHeadphoneToggle) {
+  modalHeadphoneToggle.addEventListener("change", () => {
+    setUsingHeadphones(modalHeadphoneToggle.checked);
+    applyHeadphoneSetting();
+  });
+}
 
 // 参加処理
 if (joinButton) {
@@ -136,7 +202,8 @@ if (joinButton) {
 
       localStream = await getLocalStream(
         cameraSelect.value || null,
-        micSelect.value || null
+        micSelect.value || null,
+        !usingHeadphones
       );
 
       if (myLocalVideo) myLocalVideo.srcObject = localStream;
@@ -273,6 +340,7 @@ if (layoutToggleBtn) {
 if (settingsBtn) {
   settingsBtn.onclick = () => {
     if (modalNameInput) modalNameInput.value = currentUserName;
+    if (modalHeadphoneToggle) modalHeadphoneToggle.checked = usingHeadphones;
     if (settingsModal) settingsModal.style.display = "flex";
   };
 }
