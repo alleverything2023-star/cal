@@ -1,23 +1,35 @@
-export async function getLocalStream(cameraId = null, micId = null) {
+function buildAudioConstraints(micId, echoCancellation) {
   // ノイズ抑制(noiseSuppression)と自動音量調整(autoGainControl)はブラウザ既定でON。
-  // これがかなり強めにかかるため、声が「篭る」原因になりやすい。
-  // ハウリング防止に必要なエコーキャンセル(echoCancellation)だけは有効にしたまま、
-  // 音質に影響が大きい2つはOFFにする。
+  // これがかなり強めにかかるため、声が「篭る」原因になりやすいので常にOFFにする。
+  // エコーキャンセル(echoCancellation)は、スピーカー使用時のハウリング防止に必要な一方、
+  // iPad Safari等ではONにするとマイク使用中は端末上の他の音声(YouTube等)まで
+  // まとめて抑え込まれてしまう。イヤホン・ヘッドホン使用中はハウリングの心配がないため
+  // OFFにできるよう、呼び出し側で切り替えられるようにする。
   const audioConstraints = {
-    echoCancellation: true,
+    echoCancellation: echoCancellation !== false,
     noiseSuppression: false,
     autoGainControl: false
   };
   if (micId) audioConstraints.deviceId = { exact: micId };
+  return audioConstraints;
+}
 
+export async function getLocalStream(cameraId = null, micId = null, echoCancellation = true) {
   const constraints = {
     video: cameraId
       ? { deviceId: { exact: cameraId } }
       : true,
-    audio: audioConstraints
+    audio: buildAudioConstraints(micId, echoCancellation)
   };
 
   return navigator.mediaDevices.getUserMedia(constraints);
+}
+
+// マイク音声だけを取り直すための関数（通話中にイヤホン設定を切り替えた時に使用）
+export async function getAudioOnlyStream(micId = null, echoCancellation = true) {
+  return navigator.mediaDevices.getUserMedia({
+    audio: buildAudioConstraints(micId, echoCancellation)
+  });
 }
 
 export async function updateDeviceList(requestPermission = true) {
