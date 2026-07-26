@@ -1,5 +1,18 @@
 import { myId, sendSignalingMessage, listenSignalingMessage } from "./room.js";
 
+// 指定したPeerConnectionの「音声用」のRTCRtpSenderを返す。
+// マイクをハードウェアごと解放している間はsender.trackがnullになるため、
+// senderのtrackだけでは音声用かどうか判別できない。
+// transceiver.receiver.track.kindは(相手が送っている限り)ずっと"audio"のままなので、
+// そちらを手がかりに音声用トランシーバーを特定する。
+export function getAudioSender(pc) {
+  const transceiver = pc.getTransceivers().find(t =>
+    (t.sender && t.sender.track && t.sender.track.kind === "audio") ||
+    (t.receiver && t.receiver.track && t.receiver.track.kind === "audio")
+  );
+  return transceiver ? transceiver.sender : null;
+}
+
 export const peerConnections = {};
 let localStreamRef = null;
 let onRemoteStreamRef = null;
