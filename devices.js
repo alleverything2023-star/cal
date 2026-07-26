@@ -61,6 +61,9 @@ export async function updateDeviceList(requestPermission = true) {
 
   cameraSelect.innerHTML = "";
   micSelect.innerHTML = "";
+  // 通話中に切り替えられる設定モーダル側のマイクセレクト(存在すれば同期する)
+  const modalMicSelect = document.getElementById("modalMicSelect");
+  if (modalMicSelect) modalMicSelect.innerHTML = "";
 
   let cam = 1;
   let mic = 1;
@@ -76,9 +79,12 @@ export async function updateDeviceList(requestPermission = true) {
 
     if (device.kind === "audioinput") {
       option.textContent = device.label || `マイク ${mic++}`;
-      micSelect.appendChild(option);
+      micSelect.appendChild(option.cloneNode(true));
+      if (modalMicSelect) modalMicSelect.appendChild(option);
     }
   });
+
+  if (modalMicSelect) modalMicSelect.value = micSelect.value;
 
   if (tempStream) {
     tempStream.getTracks().forEach(track => track.stop());
