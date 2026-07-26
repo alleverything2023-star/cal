@@ -1,6 +1,6 @@
 import { joinRoom, listenParticipants, myId, updateMyName, updateMyMediaState, sendChatMessageToFirebase, listenChatMessages, sendImageMessageToFirebase, sendPdfToFirebase, listenPdfData } from "./room.js";
 import { getLocalStream, getAudioOnlyStream, updateDeviceList } from "./devices.js";
-import { startP2P, closeP2P, peerConnections } from "./webrtc.js";
+import { startP2P, closeP2P, peerConnections, getAudioSender } from "./webrtc.js";
 import { loadAndRenderPdf, renderCurrentPage, changePage } from "./pdf.js";
 import { initPomodoroTimers } from "./pomodoro.js";
 import { initYoutubeFeature } from "./youtube.js";
@@ -148,7 +148,7 @@ async function applyHeadphoneSetting() {
     newAudioTrack.enabled = oldAudioTrack ? oldAudioTrack.enabled : true;
 
     Object.values(peerConnections).forEach(pc => {
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === "audio");
+      const sender = getAudioSender(pc);
       if (sender) sender.replaceTrack(newAudioTrack);
     });
 
@@ -296,14 +296,65 @@ function updateButtonStatusUI(btnElement, indicatorId, isOn) {
   }
 }
 
+// iPad/iPhone(iOS/iPadOS)判定。
+// マイクの録音セッションが生きている間、他の音声(YouTube等)を常にダッキングしてしまう
+// 挙動は現状iOS特有のもの。この端末でだけ「マイクOFF=ハードウェア解放」を行い、
+// それ以外の端末(Android/Windows/Mac等)では瞬時に切り替わる単純なミュートのままにする。
+function isIOSDevice() {
+  const ua = navigator.userAgent || navigator.vendor || "";
+  const isAppleMobileUA = /iPad|iPhone|iPod/.test(ua);
+  // iPadOS13以降はSafariのUAが "MacIntel" を返すため、タッチ対応の有無で判定を補う
+  const isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return isAppleMobileUA || isIPadOS;
+}
+
 if (mainMicBtn) {
-  mainMicBtn.onclick = () => {
+  mainMicBtn.onclick = async () => {
     if (!localStream) return;
     const audioTrack = localStream.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      updateButtonStatusUI(mainMicBtn, "myMicStatus", audioTrack.enabled);
-      updateMyMediaState({ micOn: audioTrack.enabled });
+    const isCurrentlyOn = !!(audioTrack && audioTrack.enabled && audioTrack.readyState === "live");
+
+    if (!isIOSDevice()) {
+      // iOS以外: 従来通り、瞬時に切り替わる単純なミュート
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        updateButtonStatusUI(mainMicBtn, "myMicStatus", audioTrack.enabled);
+        updateMyMediaState({ micOn: audioTrack.enabled });
+      }
+      return;
+    }
+
+    if (isCurrentlyOn) {
+      // マイクをOFFにする: ミュートするだけでなく、マイクのハードウェア自体を解放する。
+      // (iOSはマイクの録音セッションが生きている間、他の音声(YouTube等)を常に
+      //  ダッキングしてしまうため、OFF中は完全に解放してこもりを止める)
+      Object.values(peerConnections).forEach(pc => {
+        const sender = getAudioSender(pc);
+        if (sender) sender.replaceTrack(null).catch(() => {});
+      });
+      localStream.removeTrack(audioTrack);
+      audioTrack.stop();
+      updateButtonStatusUI(mainMicBtn, "myMicStatus", false);
+      updateMyMediaState({ micOn: false });
+    } else {
+      // マイクをONにする: ハードウェアを取り直して各PeerConnectionに繋ぎ直す
+      try {
+        const newAudioStream = await getAudioOnlyStream(micSelect.value || null, !usingHeadphones);
+        const newAudioTrack = newAudioStream.getAudioTracks()[0];
+        if (!newAudioTrack) return;
+        newAudioTrack.enabled = true;
+
+        Object.values(peerConnections).forEach(pc => {
+          const sender = getAudioSender(pc);
+          if (sender) sender.replaceTrack(newAudioTrack).catch(() => {});
+        });
+
+        localStream.addTrack(newAudioTrack);
+        updateButtonStatusUI(mainMicBtn, "myMicStatus", true);
+        updateMyMediaState({ micOn: true });
+      } catch (e) {
+        console.error("マイクの再取得に失敗しました", e);
+      }
     }
   };
 }
