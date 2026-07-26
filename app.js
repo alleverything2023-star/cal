@@ -32,6 +32,7 @@ const initCameraToggle = document.getElementById("initCameraToggle");
 const initMicToggle = document.getElementById("initMicToggle");
 const initHeadphoneToggle = document.getElementById("initHeadphoneToggle");
 const modalHeadphoneToggle = document.getElementById("modalHeadphoneToggle");
+const modalMicSelect = document.getElementById("modalMicSelect");
 const nameInput = document.getElementById("nameInput");
 const joinButton = document.getElementById("joinButton");
 const myLocalVideo = document.getElementById("myLocalVideo");
@@ -130,17 +131,18 @@ function setUsingHeadphones(value) {
   try { localStorage.setItem(HEADPHONE_STORAGE_KEY, usingHeadphones ? "1" : "0"); } catch (e) {}
 }
 
-async function applyHeadphoneSetting() {
+// 音声トラックだけを新しい設定(マイクデバイス・エコーキャンセル)で取り直し、
+// 通話を繋ぎ直さずに既存の全PeerConnectionのトラックを差し替える。
+// イヤホン使用中トグルの切替、マイクデバイスの切替の両方から共通で使う。
+async function applyLiveAudioSettings(micId) {
   if (!isJoined || !localStream) {
     // 参加前はプレビューを取り直すだけでよい
     updatePreview();
     return;
   }
 
-  // 通話中の場合は、音声トラックだけを新しい設定で取り直し、
-  // 既存の全PeerConnectionのトラックを差し替える（再接続なしで反映）
   try {
-    const newAudioStream = await getAudioOnlyStream(micSelect.value || null, !usingHeadphones);
+    const newAudioStream = await getAudioOnlyStream(micId || null, !usingHeadphones);
     const newAudioTrack = newAudioStream.getAudioTracks()[0];
     if (!newAudioTrack) return;
 
@@ -158,20 +160,30 @@ async function applyHeadphoneSetting() {
     }
     localStream.addTrack(newAudioTrack);
   } catch (e) {
-    console.error("イヤホン設定の切り替えに失敗しました", e);
+    console.error("音声設定の切り替えに失敗しました", e);
   }
 }
 
 if (initHeadphoneToggle) {
   initHeadphoneToggle.addEventListener("change", () => {
     setUsingHeadphones(initHeadphoneToggle.checked);
-    applyHeadphoneSetting();
+    applyLiveAudioSettings(micSelect.value);
   });
 }
 if (modalHeadphoneToggle) {
   modalHeadphoneToggle.addEventListener("change", () => {
     setUsingHeadphones(modalHeadphoneToggle.checked);
-    applyHeadphoneSetting();
+    applyLiveAudioSettings(micSelect.value);
+  });
+}
+
+// 通話中でもマイクデバイスを切り替えられるようにする
+// (例: Bluetoothイヤホンのマイク → iPad本体のマイクに切り替え、
+//  Bluetoothの音質低下(HFP)を避けたい場合など)
+if (modalMicSelect) {
+  modalMicSelect.addEventListener("change", () => {
+    if (micSelect) micSelect.value = modalMicSelect.value;
+    applyLiveAudioSettings(modalMicSelect.value);
   });
 }
 
@@ -392,6 +404,7 @@ if (settingsBtn) {
   settingsBtn.onclick = () => {
     if (modalNameInput) modalNameInput.value = currentUserName;
     if (modalHeadphoneToggle) modalHeadphoneToggle.checked = usingHeadphones;
+    if (modalMicSelect && micSelect) modalMicSelect.value = micSelect.value;
     if (settingsModal) settingsModal.style.display = "flex";
   };
 }
